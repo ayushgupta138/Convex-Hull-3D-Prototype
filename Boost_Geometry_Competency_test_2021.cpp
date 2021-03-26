@@ -5,7 +5,7 @@
 
 #include<boost/geometry.hpp>
 
-#define epsilon 1e-1
+#define epsilon 1e-4
 
 using namespace boost::geometry;
 
@@ -147,14 +147,14 @@ inline bool is_collinear(Point const& P1, Point const& P2, Point const& P3)
 {
     model::d2::point_xy<collinearity_result> p1, p2, p3;
     
-    p1.set<0>(boost::numeric_cast<collinearity_result>(get<1>(P1)) - boost::numeric_cast<collinearity_result>(get<0>(P1)));
-    p1.set<1>(boost::numeric_cast<collinearity_result>(get<2>(P1)) - boost::numeric_cast<collinearity_result>(get<0>(P1)));
+    p1.set<0>(boost::numeric_cast<collinearity_result>(get<0>(P2)) - boost::numeric_cast<collinearity_result>(get<0>(P1)));
+    p1.set<1>(boost::numeric_cast<collinearity_result>(get<0>(P3)) - boost::numeric_cast<collinearity_result>(get<0>(P1)));
 
-    p2.set<0>(boost::numeric_cast<collinearity_result>(get<1>(P2)) - boost::numeric_cast<collinearity_result>(get<0>(P2)));
-    p2.set<1>(boost::numeric_cast<collinearity_result>(get<2>(P2)) - boost::numeric_cast<collinearity_result>(get<0>(P2)));
+    p2.set<0>(boost::numeric_cast<collinearity_result>(get<1>(P2)) - boost::numeric_cast<collinearity_result>(get<1>(P1)));
+    p2.set<1>(boost::numeric_cast<collinearity_result>(get<1>(P3)) - boost::numeric_cast<collinearity_result>(get<1>(P1)));
     
-    p3.set<0>(boost::numeric_cast<collinearity_result>(get<1>(P3)) - boost::numeric_cast<collinearity_result>(get<0>(P3)));
-    p3.set<1>(boost::numeric_cast<collinearity_result>(get<2>(P3)) - boost::numeric_cast<collinearity_result>(get<0>(P3)));
+    p3.set<0>(boost::numeric_cast<collinearity_result>(get<2>(P2)) - boost::numeric_cast<collinearity_result>(get<2>(P1)));
+    p3.set<1>(boost::numeric_cast<collinearity_result>(get<2>(P3)) - boost::numeric_cast<collinearity_result>(get<2>(P1)));
 
     model::d3::point_xyz<collinearity_result> result;
 
@@ -199,14 +199,40 @@ inline bool find_point2D(Point const& p1, Point const& p2, Geometry const& geome
 
 template
 <
+    typename Point,
+    std::size_t dim_count = dimension<Point>::value,
+    std::size_t dim = 0
+>
+struct is_equal
+{
+    static inline bool apply(Point const&p1,Point const &p2)
+    {
+        return ((get<dim>(p1) == get<dim>(p2)) && is_equal<Point, dim_count, dim + 1>::apply(p1, p2));
+    }
+};
+template
+<
+    typename Point,
+    std::size_t dim_count
+>
+struct is_equal<Point, dim_count, dim_count>
+{
+    static inline bool apply(Point const& p1, Point const& p2)
+    {
+        return true;
+    }
+};
+
+template
+<
     typename Geometry,
     typename Point
 >
-inline bool find_point3D(Point const& p1, Point const& p2, Point const& p3, Geometry const& geometry, Point const& result)
+inline bool find_point3D(Point const& p1, Point const& p2, Point const& p3, Geometry const& geometry, Point & result)
 {
     for (auto it = boost::begin(geometry) + 2; it != boost::end(geometry); it++)
     {
-        if (*it != p3 && is_visible(p1, p2, p3, *it) != on)
+        if (! is_equal<Point>::apply(*it,p3) && is_visible(p1, p2, p3, *it) != on)
         {
             result = *it;
             return true;
@@ -226,17 +252,17 @@ public:
     inline void initialize_hull(Geometry const& geometry)
     {
         BOOST_CONCEPT_ASSERT((concepts::MultiPoint<Geometry>));
-        BOOST_STATIC_ASSERT(geometry.size() > 3);
+        BOOST_ASSERT((geometry.size() > 3));
         typedef typename boost::range_value<Geometry>::type point_type;
         std::vector<point_type> initial_points;
         initial_points.push_back(*(boost::begin(geometry)));
         initial_points.push_back(*(boost::begin(geometry) + 1));
         point_type result;
         bool res = find_point2D(initial_points[0], initial_points[1], geometry, result);
-        BOOST_STATIC_ASSERT(res);
+        BOOST_ASSERT(res);
         initial_points.push_back(result);
         res = find_point3D(initial_points[0], initial_points[1], initial_points[2], geometry, result);
-        BOOST_STATIC_ASSERT(res);
+        BOOST_ASSERT(res);
         initial_points.push_back(result);
     }
 private:
@@ -252,6 +278,11 @@ int main()
 {
     std::cout << "Hello World!\n";
     typedef model::d3::point_xyz<double> point3d;
+    typedef model::multi_point<point3d> mulpoly;
     typedef model::ring<point3d> rng;
     std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
+    mulpoly mul;
+    read_wkt("MULTIPOINT(0 0 0, 1 1 1,2 2 2)", mul);
+    convex_hull_3D<point3d> pt;
+    pt.initialize_hull(mul);
 }
