@@ -2,15 +2,13 @@
 #include <iostream>
 #include<list>
 #include<utility>
+#include<initializer_list>
 
 #include<boost/geometry.hpp>
 
 #define epsilon 1e-4
 
 using namespace boost::geometry;
-
-template<typename Point>
-struct edge;
 
 template
 <
@@ -19,7 +17,6 @@ template
 struct facet
 {
     std::list<Point> m_facet;
-    edge<Point>* m_edge;
     inline void add_point(Point const& p)
     {
         m_facet.push_back(p);
@@ -28,6 +25,13 @@ struct facet
     inline void insert_point(Point const& p, Iterator const* it)
     {
         m_facet.insert(it, p);
+    }
+    inline facet(std::initializer_list<Point> l)
+    {
+        for (auto it = l.begin(); it != l.end(); it++)
+        {
+            m_facet.push_back(*it);
+        }
     }
 };
 
@@ -38,7 +42,12 @@ template
 struct vertex
 {
     Point m_vertex;
-    edge<Point>* m_edge;
+    vertex(Point const& p)
+    {
+        m_vertex.set<0>(get<0>(p));
+        m_vertex.set<1>(get<1>(p));
+        m_vertex.set<2>(get<2>(p));
+    }
 };
 
 template
@@ -47,9 +56,15 @@ template
 >
 struct edge
 {
-    facet<Point>* m_left_facet, * m_right_facet;
+    facet<Point>* m_facet1, * m_facet2;
     vertex<Point>* m_v1, * m_v2;
-    edge<Point>* m_upper_left, * m_upper_right, * m_lower_left, * m_lower_right;
+    inline edge(facet<Point>* f1, facet<Point>* f2, vertex<Point>* v1, vertex<Point>* v2)
+    {
+        m_facet1 = f1;
+        m_facet2 = f2;
+        m_v1 = v1;
+        m_v2 = v2;
+    }
 };
 
 template<typename Point>
@@ -64,9 +79,9 @@ template
 >
 struct polyhedron
 {
-    std::vector<facet<Point>> m_facet;
-    std::vector<edge<Point>> m_edge;
-    std::vector<vertex<Point>> m_vertex;
+    std::list<facet<Point>> m_face;
+    std::list<edge<Point>> m_edge;
+    std::list<vertex<Point>> m_vertex;
 };
 
 template
@@ -248,7 +263,10 @@ template
 class convex_hull_3D
 {
 public:
-    template<typename Geometry>
+    template
+        <
+         typename Geometry
+        >
     inline void initialize_hull(Geometry const& geometry)
     {
         BOOST_CONCEPT_ASSERT((concepts::MultiPoint<Geometry>));
@@ -265,13 +283,38 @@ public:
         BOOST_ASSERT(res);
         initial_points.push_back(result);
     }
-private:
-    class convex_hull_container
+    template
+        <
+        typename Point
+        >
+    inline void construct_initial_polyhedron(std::vector<Point> const& initials)
     {
-        friend class convex_hull_3D;
+        std::vector<Point> ccw_order = { initials[0],initials[1],initials[2] };
+        if (is_visible(ccw_order[0], ccw_order[1], ccw_order[2], initials[3]) == above)
+        {
+            std::reverse(boost::begin(ccw_order, boost::end(ccw_order)));
+        }
+        facet<Point> face;
+        face = { ccw_order[0],ccw_order[1],ccw_order[2],ccw_order[0] }; // face 1   (1 2 3 1)
+        m_polyhedron.m_face.push_back(face);
+        face = { ccw_order[0],initials[3],ccw_order[1],ccw_order[0] };  // face 2   (1 4 2 1)
+        m_polyhedron.m_face.push_back(face); 
+        face = { ccw_order[1],initials[3],ccw_order[2],ccw_order[1] };  // face 3   (2 4 3 2)
+        m_polyhedron.m_face.push_back(face);
+        face = { ccw_order[0],ccw_order[2],initials[3],ccw_order[0] };  // face 4   (1 3 4 1)
+        m_polyhedron.m_face.push_back(face);
+
+        m_polyhedron.m_vertex.push_back(vertex<Point>(ccw_order[0]));
+        m_polyhedron.m_vertex.push_back(vertex<Point>(ccw_order[1]));
+        m_polyhedron.m_vertex.push_back(vertex<Point>(ccw_order[2]));
+        m_polyhedron.m_vertex.push_back(vertex<Point>(initials[3]));
+
+        
+    }
+
+private:
         polyhedron<Point> m_polyhedron;
         conflict_graph<Point> m_conflict_graph;
-    };
 };
 
 int main()
@@ -282,7 +325,7 @@ int main()
     typedef model::ring<point3d> rng;
     std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
-    read_wkt("MULTIPOINT(0 0 0, 1 1 1,2 2 2)", mul);
-    convex_hull_3D<point3d> pt;
-    pt.initialize_hull(mul);
+    //read_wkt("MULTIPOINT(0 0 0, 1 1 1,2 2 2)", mul);
+    //convex_hull_3D<point3d> pt;
+    //pt.initialize_hull(mul);
 }
