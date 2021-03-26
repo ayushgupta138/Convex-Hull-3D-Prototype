@@ -181,6 +181,24 @@ inline bool is_collinear(Point const& P1, Point const& P2, Point const& P3)
 
 template
 <
+    typename Geometry,
+    typename Point
+>
+inline bool find_point2D(Point const& p1, Point const& p2, Geometry const& geometry,Point &result)
+{
+    for (auto it = boost::begin(geometry) + 2; it != boost::end(geometry); it++)
+    {
+        if (!is_collinear(p1, p2, *it))
+        {
+            result = *it;
+            return true;
+        }
+    }
+    return false;
+}
+
+template
+<
     typename Point
 >
 class convex_hull_3D
@@ -212,5 +230,4 @@ int main()
     typedef model::d3::point_xyz<double> point3d;
     typedef model::ring<point3d> rng;
     std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
-    std::cout << is_collinear(point3d(0, 0, 0), point3d(2, 2, 2), point3d(1, 1, 1)) << "\n";
 }
