@@ -199,6 +199,24 @@ inline bool find_point2D(Point const& p1, Point const& p2, Geometry const& geome
 
 template
 <
+    typename Geometry,
+    typename Point
+>
+inline bool find_point3D(Point const& p1, Point const& p2, Point const& p3, Geometry const& geometry, Point const& result)
+{
+    for (auto it = boost::begin(geometry) + 2; it != boost::end(geometry); it++)
+    {
+        if (*it != p3 && is_visible(p1, p2, p3, *it) != on)
+        {
+            result = *it;
+            return true;
+        }
+    }
+    return false;
+}
+
+template
+<
     typename Point
 >
 class convex_hull_3D
@@ -213,7 +231,13 @@ public:
         std::vector<point_type> initial_points;
         initial_points.push_back(*(boost::begin(geometry)));
         initial_points.push_back(*(boost::begin(geometry) + 1));
-
+        point_type result;
+        bool res = find_point2D(initial_points[0], initial_points[1], geometry, result);
+        BOOST_STATIC_ASSERT(res);
+        initial_points.push_back(result);
+        res = find_point3D(initial_points[0], initial_points[1], initial_points[2], geometry, result);
+        BOOST_STATIC_ASSERT(res);
+        initial_points.push_back(result);
     }
 private:
     class convex_hull_container
