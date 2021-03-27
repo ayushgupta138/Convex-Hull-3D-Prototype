@@ -100,11 +100,20 @@ template<typename Point>
 struct unprocessed_point
 {
     Point m_point;
+    
+    inline unprocessed_point()
+    {}
+    
     inline unprocessed_point(Point const& p)
     {
         m_point.set<0>(get<0>(p));
         m_point.set<1>(get<1>(p));
         m_point.set<2>(get<2>(p));
+    }
+    // for testing purposes
+    inline void print()
+    {
+        std::cout << wkt(m_point) << "\n";
     }
 };
 
@@ -162,6 +171,36 @@ struct conflict_graph
 {
     std::list<std::pair<facet<Point>*,std::vector<unprocessed_point<Point>*>>> m_facet_list;
     std::list<std::pair<unprocessed_point<Point>*,std::vector<facet<Point>*>>> m_point_list;
+    
+    inline conflict_graph()
+    {}
+
+    // for testing purposes
+    inline void print_graph()
+    {
+        std::cout << "Printing facet list:\n";
+        std::cout << m_facet_list.size() << " " << m_point_list.size() << "\n";
+        /*for (auto it = boost::begin(m_facet_list); it != boost::end(m_facet_list); it++)
+        {
+            std::cout << typeid(it->first->print_facet()).name() << "\n";
+            (*it->first).print_facet();
+            /*std::cout << " : \n";
+            for (auto itr = boost::begin(it->second); it != boost::end(it->second); itr++)
+            {
+                itr->print();
+            }
+        }
+        std::cout << "Printing point list:\n";
+        for (auto it = boost::begin(m_point_list); it != boost::end(m_point_list); it++)
+        {
+            /*it->first->print();
+            std::cout << " : \n";
+            for (auto itr = boost::begin(it->second); it != boost::end(it->second); itr++)
+            {
+                itr->print_facet();
+            }
+        }*/
+    }
 };
 
 enum location
@@ -353,16 +392,16 @@ public:
         BOOST_ASSERT(res);
         initial_points.push_back(result);
         construct_initial_polyhedron(initial_points);
-        std::vector<unprocessed_point<Point>> shuffled_unprocessed_points;
-        for (auto it = boost::begin(geometry) + 2; it != boost:end(geometry); it++)
+        for (auto it = boost::begin(geometry) + 2; it != boost::end(geometry); it++)
         {
             if (!is_equal<Point>::apply(initial_points[2], *it) && !is_equal<Point>::apply(initial_points[3], *it))
             {
-                shuffled_unprocessed_points.push_back(unprocessed_point<Point>(*it));
+                m_unprocessed_points.push_back(unprocessed_point<Point>(*it));
             }
         }
         unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-        std::shuffle(boost::begin(shuffled_unprocessed_points), boost::end(shuffled_unprocessed_points), std::default_random_engine(seed));
+        std::shuffle(boost::begin(m_unprocessed_points), boost::end(m_unprocessed_points), std::default_random_engine(seed));
+        construct_initial_conflict_graph();
     }
    template
         <
@@ -406,18 +445,48 @@ public:
         //m_polyhedron.print_poly_facet();
     }
     
-   template
-       <
-       typename Point
-       >
-   inline void construct_initial_conflict_graph(std::vector<unprocessed_point<Point>> const& points)
+   inline void construct_initial_conflict_graph()
    {
+       initialize_conflict_graph();
+       auto point_it = boost::begin(m_conflict_graph.m_point_list);
+       for (auto it = boost::begin(m_unprocessed_points); it != boost::end(m_unprocessed_points); it++)
+       {
+           auto face_it = boost::begin(m_conflict_graph.m_facet_list);
+           for (auto f_it = boost::begin(m_polyhedron.m_face); f_it != boost::end(m_polyhedron.m_face); f_it++)
+           {
+               facet<Point> face = *f_it;
+               unprocessed_point<Point> u_point = *it;
+               if (is_visible<Point>(f_it->get<0>(), f_it->get<1>(), f_it->get<2>(), it->m_point) == above)
+               {
+                   point_it->second.push_back(&face);
+                   face_it->second.push_back(&u_point);
+               }
+               face_it++;
+           }
+           point_it++;
+       }
+       m_conflict_graph.print_graph();
+   }
 
+ 
+   inline void initialize_conflict_graph()
+   {
+       for (auto it = boost::begin(m_polyhedron.m_face); it != boost::end(m_polyhedron.m_face); it++)
+       {
+           facet<Point> face = *it;
+           m_conflict_graph.m_facet_list.push_back(std::make_pair(&face, std::vector<unprocessed_point<Point> *>()));
+       }
+       for (auto it = boost::begin(m_unprocessed_points); it != boost::end(m_unprocessed_points); it++)
+       {
+           unprocessed_point<Point> u_point = *it;
+           m_conflict_graph.m_point_list.push_back(std::make_pair(&u_point, std::vector<facet<Point>*>()));
+       }
    }
 
    // should be declared as private, but public in this case for ease of testing
         polyhedron<Point> m_polyhedron;
         conflict_graph<Point> m_conflict_graph;
+        std::vector<unprocessed_point<Point>> m_unprocessed_points;
 };
 
 int main()
