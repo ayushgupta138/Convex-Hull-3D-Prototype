@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include<list>
+#include<vector>
 #include<utility>
 #include<initializer_list>
 #include<random>
@@ -18,7 +19,7 @@ template
 >
 struct facet
 {
-    std::list<Point> m_facet;
+    std::vector<Point> m_facet;
     inline void add_point(Point const& p)
     {
         m_facet.push_back(p);
@@ -130,9 +131,9 @@ template
 >
 struct polyhedron
 {
-    std::list<facet<Point>> m_face;
-    std::list<edge<Point>> m_edge;
-    std::list<vertex<Point>> m_vertex;
+    std::vector<facet<Point>> m_face;
+    std::vector<edge<Point>> m_edge;
+    std::vector<vertex<Point>> m_vertex;
     
     template<std::size_t dim>
     inline facet<Point>* get_face()
@@ -176,8 +177,8 @@ template
 >
 struct conflict_graph
 {
-    std::list<std::pair<facet<Point>*,std::vector<unprocessed_point<Point>*>>> m_facet_list;
-    std::list<std::pair<unprocessed_point<Point>*,std::vector<facet<Point>*>>> m_point_list;
+    std::vector<std::pair<facet<Point>*,std::vector<unprocessed_point<Point>*>>> m_facet_list;
+    std::vector<std::pair<unprocessed_point<Point>*,std::vector<facet<Point>*>>> m_point_list;
     
     inline conflict_graph()
     {}
@@ -201,12 +202,9 @@ struct conflict_graph
         {
             (*(*it).first).print();
             std::cout << " : \n";
-            std::cout<< (*it).second.size()<<"\n";
             for (auto itr = boost::begin((*it).second); itr != boost::end((*it).second); itr++)
             {
-                facet<Point>* fac = *itr;
-                facet<Point> fa=*fac;
-                //(*itr)->print_facet();
+                (*(*itr)).print_facet();
             }
         }
     }
@@ -463,12 +461,12 @@ public:
            auto face_it = boost::begin(m_conflict_graph.m_facet_list);
            for (auto f_it = boost::begin(m_polyhedron.m_face); f_it != boost::end(m_polyhedron.m_face); f_it++)
            {
-               facet<Point> face = *f_it;
-               unprocessed_point<Point> u_point = *it;
+               std::size_t index1 = boost::numeric_cast<std::size_t>(f_it - boost::begin(m_polyhedron.m_face));
+               std::size_t index2 = boost::numeric_cast<std::size_t>(it - boost::begin(m_unprocessed_points));
                if (is_visible<Point>(f_it->get<0>(), f_it->get<1>(), f_it->get<2>(), it->m_point) == above)
                {
-                   point_it->second.push_back(&face);
-                   face_it->second.push_back(&u_point);
+                   point_it->second.push_back(&m_polyhedron.m_face[index1]);
+                   face_it->second.push_back(&m_unprocessed_points[index2]);
                }
                face_it++;
            }
@@ -482,13 +480,13 @@ public:
    {
        for (auto it = boost::begin(m_polyhedron.m_face); it != boost::end(m_polyhedron.m_face); it++)
        {
-           facet<Point>* face = new facet<Point>(*it);
-           m_conflict_graph.m_facet_list.push_back(std::make_pair(face, std::vector<unprocessed_point<Point>*>()));
+           std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_polyhedron.m_face));
+           m_conflict_graph.m_facet_list.push_back(std::make_pair(&m_polyhedron.m_face[index], std::vector<unprocessed_point<Point>*>()));
        }
        for (auto it = boost::begin(m_unprocessed_points); it != boost::end(m_unprocessed_points); it++)
        {
-           unprocessed_point<Point>* u_point = new unprocessed_point<Point>(*it);
-           m_conflict_graph.m_point_list.push_back(std::make_pair(u_point, std::vector<facet<Point>*>()));
+           std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_unprocessed_points));
+           m_conflict_graph.m_point_list.push_back(std::make_pair(&m_unprocessed_points[index], std::vector<facet<Point>*>()));
        }
    }
 
@@ -506,7 +504,7 @@ int main()
     typedef model::ring<point3d> rng;
     //std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
-    read_wkt("MULTIPOINT(0 0 0, 1 0 0,0 0 1,0 1 0,-1 -1 -1)", mul);
+    read_wkt("MULTIPOINT(0 0 0, 1 0 0,0 0 1,0 1 0,-1 -1 -1,0 0 3,-1,-1,0)", mul);
     convex_hull_3D<point3d> pt;
     pt.initialize_hull(mul);
     for (auto it = boost::begin(pt.m_polyhedron.m_face); it != boost::end(pt.m_polyhedron.m_face); it++)
