@@ -3,6 +3,8 @@
 #include<list>
 #include<utility>
 #include<initializer_list>
+#include<random>
+#include<chrono> 
 
 #include<boost/geometry.hpp>
 
@@ -98,6 +100,12 @@ template<typename Point>
 struct unprocessed_point
 {
     Point m_point;
+    inline unprocessed_point(Point const& p)
+    {
+        m_point.set<0>(get<0>(p));
+        m_point.set<1>(get<1>(p));
+        m_point.set<2>(get<2>(p));
+    }
 };
 
 template
@@ -345,6 +353,16 @@ public:
         BOOST_ASSERT(res);
         initial_points.push_back(result);
         construct_initial_polyhedron(initial_points);
+        std::vector<unprocessed_point<Point>> shuffled_unprocessed_points;
+        for (auto it = boost::begin(geometry) + 2; it != boost:end(geometry); it++)
+        {
+            if (!is_equal<Point>::apply(initial_points[2], *it) && !is_equal<Point>::apply(initial_points[3], *it))
+            {
+                shuffled_unprocessed_points.push_back(unprocessed_point<Point>(*it));
+            }
+        }
+        unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+        std::shuffle(boost::begin(shuffled_unprocessed_points), boost::end(shuffled_unprocessed_points), std::default_random_engine(seed));
     }
    template
         <
@@ -387,6 +405,16 @@ public:
         m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<3>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<2>(), m_polyhedron.get_vertex<3>()));
         //m_polyhedron.print_poly_facet();
     }
+    
+   template
+       <
+       typename Point
+       >
+   inline void construct_initial_conflict_graph(std::vector<unprocessed_point<Point>> const& points)
+   {
+
+   }
+
    // should be declared as private, but public in this case for ease of testing
         polyhedron<Point> m_polyhedron;
         conflict_graph<Point> m_conflict_graph;
