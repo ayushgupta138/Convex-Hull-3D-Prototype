@@ -33,6 +33,16 @@ struct facet
             m_facet.push_back(*it);
         }
     }
+    inline facet()
+    {}
+    inline void print_facet()
+    {
+        for (auto it = boost::begin(m_facet); it != boost::end(m_facet); it++)
+        {
+            std::cout << wkt(*it) << " ";
+        }
+        std::cout << "\n";
+    }
 };
 
 template
@@ -92,9 +102,10 @@ struct polyhedron
     {
         BOOST_ASSERT((dim < m_face.size()));
         auto it = boost::begin(m_face);
-        while (dim > 0)
+        std::size_t count = dim;
+        while (count > 0)
         {
-            dim--;
+            count--;
             it++;
         }
         facet<Point> f = *it;
@@ -106,14 +117,20 @@ struct polyhedron
     {
         BOOST_ASSERT((dim < m_vertex.size()));
         auto it = boost::begin(m_vertex);
-        while (dim > 0)
+        std::size_t count = dim;
+        while (count > 0)
         {
-            dim--;
+            count--;
             it++;
         }
         vertex<Point> v = *it;
         return &v;
     }
+    inline void print_poly_facet()
+    {
+        for (auto it = boost::begin(m_face); it != boost::end(m_face); it++)
+            it->print_facet();
+   }
 };
 
 template
@@ -174,9 +191,9 @@ inline location is_visible(Point const& P1, Point const& P2, Point const& P3,Poi
             get<2>(p1) * get<1>(p2));
 
     location res;
-    if (result < -epsilon)
+    if (result > epsilon)
         res = above;
-    else if (result > epsilon)
+    else if (result < -epsilon)
         res = below;
     else
         res = on;
@@ -314,17 +331,18 @@ public:
         res = find_point3D(initial_points[0], initial_points[1], initial_points[2], geometry, result);
         BOOST_ASSERT(res);
         initial_points.push_back(result);
+        construct_initial_polyhedron(initial_points);
     }
-    template
+   template
         <
         typename Point
         >
     inline void construct_initial_polyhedron(std::vector<Point> const& initials)
     {
         std::vector<Point> ccw_order = { initials[0],initials[1],initials[2] };
-        if (is_visible(ccw_order[0], ccw_order[1], ccw_order[2], initials[3]) == above)
+        if (is_visible(ccw_order[0], ccw_order[1], ccw_order[2], initials[3]) == below)
         {
-            std::reverse(boost::begin(ccw_order, boost::end(ccw_order)));
+            std::reverse(boost::begin(ccw_order), boost::end(ccw_order));
         }
         facet<Point> face;
         
@@ -354,6 +372,7 @@ public:
         m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<0>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<1>(), m_polyhedron.get_vertex<2>()));
         m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<1>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<1>(), m_polyhedron.get_vertex<3>()));
         m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<3>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<2>(), m_polyhedron.get_vertex<3>()));
+        m_polyhedron.print_poly_facet();
     }
 
 private:
@@ -367,9 +386,10 @@ int main()
     typedef model::d3::point_xyz<double> point3d;
     typedef model::multi_point<point3d> mulpoly;
     typedef model::ring<point3d> rng;
-    std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
+    //std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
     read_wkt("MULTIPOINT(0 0 0, 1 1 1,2 2 2,2 1 3,3 4 2,5 5 3)", mul);
     convex_hull_3D<point3d> pt;
     pt.initialize_hull(mul);
+    facet<point3d> fac = { point3d(0,0,1),point3d(0,0,0),point3d(1,1,1),point3d(4,2,6) };
 }
