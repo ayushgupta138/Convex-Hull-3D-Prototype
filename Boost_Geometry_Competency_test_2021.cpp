@@ -104,6 +104,13 @@ struct unprocessed_point
     inline unprocessed_point()
     {}
     
+    inline unprocessed_point(std::initializer_list<Point> l)
+    {
+        for (auto it = l.begin(); it != l.end(); it++)
+        {
+            m_point.push_back(*it);
+        }
+    }
     inline unprocessed_point(Point const& p)
     {
         m_point.set<0>(get<0>(p));
@@ -179,27 +186,29 @@ struct conflict_graph
     inline void print_graph()
     {
         std::cout << "Printing facet list:\n";
-        std::cout << m_facet_list.size() << " " << m_point_list.size() << "\n";
-        /*for (auto it = boost::begin(m_facet_list); it != boost::end(m_facet_list); it++)
+        for (auto it = boost::begin(m_facet_list); it != boost::end(m_facet_list); it++)
         {
-            std::cout << typeid(it->first->print_facet()).name() << "\n";
-            (*it->first).print_facet();
-            /*std::cout << " : \n";
-            for (auto itr = boost::begin(it->second); it != boost::end(it->second); itr++)
+            (*(*it).first).print_facet();
+            std::cout << " : \n";
+            for (auto itr = boost::begin((*it).second); itr != boost::end((*it).second); itr++)
             {
-                itr->print();
+                (*(*itr)).print();
             }
+            
         }
         std::cout << "Printing point list:\n";
         for (auto it = boost::begin(m_point_list); it != boost::end(m_point_list); it++)
         {
-            /*it->first->print();
+            (*(*it).first).print();
             std::cout << " : \n";
-            for (auto itr = boost::begin(it->second); it != boost::end(it->second); itr++)
+            std::cout<< (*it).second.size()<<"\n";
+            for (auto itr = boost::begin((*it).second); itr != boost::end((*it).second); itr++)
             {
-                itr->print_facet();
+                facet<Point>* fac = *itr;
+                facet<Point> fa=*fac;
+                //(*itr)->print_facet();
             }
-        }*/
+        }
     }
 };
 
@@ -473,13 +482,13 @@ public:
    {
        for (auto it = boost::begin(m_polyhedron.m_face); it != boost::end(m_polyhedron.m_face); it++)
        {
-           facet<Point> face = *it;
-           m_conflict_graph.m_facet_list.push_back(std::make_pair(&face, std::vector<unprocessed_point<Point> *>()));
+           facet<Point>* face = new facet<Point>(*it);
+           m_conflict_graph.m_facet_list.push_back(std::make_pair(face, std::vector<unprocessed_point<Point>*>()));
        }
        for (auto it = boost::begin(m_unprocessed_points); it != boost::end(m_unprocessed_points); it++)
        {
-           unprocessed_point<Point> u_point = *it;
-           m_conflict_graph.m_point_list.push_back(std::make_pair(&u_point, std::vector<facet<Point>*>()));
+           unprocessed_point<Point>* u_point = new unprocessed_point<Point>(*it);
+           m_conflict_graph.m_point_list.push_back(std::make_pair(u_point, std::vector<facet<Point>*>()));
        }
    }
 
@@ -497,7 +506,7 @@ int main()
     typedef model::ring<point3d> rng;
     //std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
-    read_wkt("MULTIPOINT(0 0 0, 1 0 0,0 0 1,0 1 0,2 2 2)", mul);
+    read_wkt("MULTIPOINT(0 0 0, 1 0 0,0 0 1,0 1 0,-1 -1 -1)", mul);
     convex_hull_3D<point3d> pt;
     pt.initialize_hull(mul);
     for (auto it = boost::begin(pt.m_polyhedron.m_face); it != boost::end(pt.m_polyhedron.m_face); it++)
