@@ -48,6 +48,10 @@ struct vertex
         m_vertex.set<1>(get<1>(p));
         m_vertex.set<2>(get<2>(p));
     }
+    inline void get_pointer()
+    {
+        return &m_vertex;
+    }
 };
 
 template
@@ -82,6 +86,34 @@ struct polyhedron
     std::list<facet<Point>> m_face;
     std::list<edge<Point>> m_edge;
     std::list<vertex<Point>> m_vertex;
+    
+    template<std::size_t dim>
+    inline facet<Point>* get_face()
+    {
+        BOOST_ASSERT((dim < m_face.size()));
+        auto it = boost::begin(m_face);
+        while (dim > 0)
+        {
+            dim--;
+            it++;
+        }
+        facet<Point> f = *it;
+        return &f;
+    }
+
+    template<std::size_t dim>
+    inline vertex<Point>* get_vertex()
+    {
+        BOOST_ASSERT((dim < m_vertex.size()));
+        auto it = boost::begin(m_vertex);
+        while (dim > 0)
+        {
+            dim--;
+            it++;
+        }
+        vertex<Point> v = *it;
+        return &v;
+    }
 };
 
 template
@@ -295,6 +327,9 @@ public:
             std::reverse(boost::begin(ccw_order, boost::end(ccw_order)));
         }
         facet<Point> face;
+        
+        // create four faces of the initial hull
+
         face = { ccw_order[0],ccw_order[1],ccw_order[2],ccw_order[0] }; // face 1   (1 2 3 1)
         m_polyhedron.m_face.push_back(face);
         face = { ccw_order[0],initials[3],ccw_order[1],ccw_order[0] };  // face 2   (1 4 2 1)
@@ -304,12 +339,21 @@ public:
         face = { ccw_order[0],ccw_order[2],initials[3],ccw_order[0] };  // face 4   (1 3 4 1)
         m_polyhedron.m_face.push_back(face);
 
+        // store initial 4 vertices of the hull
+        
         m_polyhedron.m_vertex.push_back(vertex<Point>(ccw_order[0]));
         m_polyhedron.m_vertex.push_back(vertex<Point>(ccw_order[1]));
         m_polyhedron.m_vertex.push_back(vertex<Point>(ccw_order[2]));
         m_polyhedron.m_vertex.push_back(vertex<Point>(initials[3]));
 
+        // store initial 6 edges of the hull
         
+        m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<1>(), m_polyhedron.get_face<0>(), m_polyhedron.get_vertex<0>(), m_polyhedron.get_vertex<1>()));
+        m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<3>(), m_polyhedron.get_face<0>(), m_polyhedron.get_vertex<0>(), m_polyhedron.get_vertex<2>()));
+        m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<1>(), m_polyhedron.get_face<3>(), m_polyhedron.get_vertex<0>(), m_polyhedron.get_vertex<3>()));
+        m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<0>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<1>(), m_polyhedron.get_vertex<2>()));
+        m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<1>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<1>(), m_polyhedron.get_vertex<3>()));
+        m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<3>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<2>(), m_polyhedron.get_vertex<3>()));
     }
 
 private:
@@ -325,7 +369,7 @@ int main()
     typedef model::ring<point3d> rng;
     std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
-    //read_wkt("MULTIPOINT(0 0 0, 1 1 1,2 2 2)", mul);
-    //convex_hull_3D<point3d> pt;
-    //pt.initialize_hull(mul);
+    read_wkt("MULTIPOINT(0 0 0, 1 1 1,2 2 2,2 1 3,3 4 2,5 5 3)", mul);
+    convex_hull_3D<point3d> pt;
+    pt.initialize_hull(mul);
 }
