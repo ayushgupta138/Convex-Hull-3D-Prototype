@@ -35,13 +35,26 @@ struct facet
     }
     inline facet()
     {}
-    inline void print_facet()
+    inline void print_facet()   // function for testing purposes
     {
         for (auto it = boost::begin(m_facet); it != boost::end(m_facet); it++)
         {
             std::cout << wkt(*it) << " ";
         }
         std::cout << "\n";
+    }
+    template<std::size_t dim>
+    inline Point get()
+    {
+        BOOST_ASSERT((dim < m_facet.size()));
+        auto it = boost::begin(m_facet);
+        std::size_t count = dim;
+        while (count > 0)
+        {
+            count--;
+            it++;
+        }
+        return *it;
     }
 };
 
@@ -126,7 +139,7 @@ struct polyhedron
         vertex<Point> v = *it;
         return &v;
     }
-    inline void print_poly_facet()
+    inline void print_poly_facet() // function for testing purposes
     {
         for (auto it = boost::begin(m_face); it != boost::end(m_face); it++)
             it->print_facet();
@@ -191,9 +204,9 @@ inline location is_visible(Point const& P1, Point const& P2, Point const& P3,Poi
             get<2>(p1) * get<1>(p2));
 
     location res;
-    if (result > epsilon)
+    if (result < -epsilon)
         res = above;
-    else if (result < -epsilon)
+    else if (result > epsilon)
         res = below;
     else
         res = on;
@@ -340,7 +353,7 @@ public:
     inline void construct_initial_polyhedron(std::vector<Point> const& initials)
     {
         std::vector<Point> ccw_order = { initials[0],initials[1],initials[2] };
-        if (is_visible(ccw_order[0], ccw_order[1], ccw_order[2], initials[3]) == below)
+        if (is_visible(ccw_order[0], ccw_order[1], ccw_order[2], initials[3]) == above)
         {
             std::reverse(boost::begin(ccw_order), boost::end(ccw_order));
         }
@@ -372,10 +385,9 @@ public:
         m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<0>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<1>(), m_polyhedron.get_vertex<2>()));
         m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<1>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<1>(), m_polyhedron.get_vertex<3>()));
         m_polyhedron.m_edge.push_back(edge<Point>(m_polyhedron.get_face<3>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<2>(), m_polyhedron.get_vertex<3>()));
-        m_polyhedron.print_poly_facet();
+        //m_polyhedron.print_poly_facet();
     }
-
-private:
+   // should be declared as private, but public in this case for ease of testing
         polyhedron<Point> m_polyhedron;
         conflict_graph<Point> m_conflict_graph;
 };
@@ -388,8 +400,15 @@ int main()
     typedef model::ring<point3d> rng;
     //std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
-    read_wkt("MULTIPOINT(0 0 0, 1 1 1,2 2 2,2 1 3,3 4 2,5 5 3)", mul);
+    read_wkt("MULTIPOINT(0 0 0, 1 0 0,0 0 1,0 1 0,2 2 2)", mul);
     convex_hull_3D<point3d> pt;
     pt.initialize_hull(mul);
-    facet<point3d> fac = { point3d(0,0,1),point3d(0,0,0),point3d(1,1,1),point3d(4,2,6) };
+    for (auto it = boost::begin(pt.m_polyhedron.m_face); it != boost::end(pt.m_polyhedron.m_face); it++)
+    {
+        it->print_facet();
+        if (is_visible(it->get<0>(), it->get<1>(), it->get<2>(), point3d(-1,-1,0)) == above)
+            std::cout << "Visible\n";
+        else
+            std::cout << "Not visible\n";
+     }
 }
