@@ -41,15 +41,17 @@ struct facet
 
     void insert_point(Point const& p, Point const &p1,Point const & p2)
     {
+        std::size_t index = 0;
         for (auto it = boost::begin(m_facet); it != boost::end(m_facet) - 1; it++)
         {
             if ((is_equal<Point>::apply((*it), p1) && is_equal<Point>::apply(*(it+1), p2)) || (is_equal<Point>::apply((*it), p2) && is_equal<Point>::apply(*(it + 1), p1)))
             {
-                m_facet.insert(it, p);
+                m_facet.insert(it+1, p);
                 Point* ptr = new Point(p);
-                m_facet_ptr.push_back(ptr);
+                m_facet_ptr.insert(boost::begin(m_facet_ptr) + index + 1, ptr);
                 return;
             }
+            index++;
         }
     }
     inline facet(std::initializer_list<Point> l)
@@ -85,9 +87,9 @@ struct facet
 
     inline void print_facet()   // function for testing purposes
     {
-        for (auto it = boost::begin(m_facet); it != boost::end(m_facet); it++)
+        for (auto it = boost::begin(m_facet_ptr); it != boost::end(m_facet_ptr); it++)
         {
-            std::cout << wkt(*it) << " ";
+            std::cout << wkt(**it) << " ";
         }
         std::cout << "\n";
     }
@@ -245,16 +247,16 @@ struct polyhedron
     }
     inline void print_poly_facet() // function for testing purposes
     {
-        for (auto it = boost::begin(m_face); it != boost::end(m_face); it++)
+        for (auto it = boost::begin(m_face_ptr); it != boost::end(m_face_ptr); it++)
         {
-            it->print_facet();
+            (*it)->print_facet();
         }
    }
     void print_edges()
     {
-        for (auto it = boost::begin(m_edge); it != boost::end(m_edge); it++)
+        for (auto it = boost::begin(m_edge_ptr); it != boost::end(m_edge_ptr); it++)
         {
-            it->print_edge();
+            (*it)->print_edge();
         }
     }
 };
@@ -612,6 +614,8 @@ public:
            vertex<Point> v1(it->m_point);
            m_polyhedron.add_vertex(v1);
            update_hull(edge_list, face_set, &v1, new_facet_list);
+           std::cout << "polygon is:\n";
+           m_polyhedron.print_poly_facet();
        }
    }
 
@@ -620,9 +624,8 @@ public:
        m_polyhedron.add_vertex(vertex<Point>(*p));
        facet<Point>* temp,*temp1;
        temp = temp1 = nullptr;
-       for (auto it = boost::begin(edge_list); it != boost::end(edge_list); it++)
+       for (auto it = boost::begin(edge_list); it != boost::end(edge_list) - 1; it++)
        {
-           (**it).print_edge();
            facet<Point> *not_visible,*visible;
           if (face_set.find((**it).m_facet1) == face_set.end())
            {
@@ -659,6 +662,7 @@ public:
                }
                else
                {
+                   
                    temp1 = &face;
                }
                temp = &face;
@@ -798,12 +802,12 @@ int main()
    
     convex_hull_3D<point3d> pt;
     pt.initialize_hull(mul);
-    for (auto it = boost::begin(pt.m_polyhedron.m_face); it != boost::end(pt.m_polyhedron.m_face); it++)
+    /*for (auto it = boost::begin(pt.m_polyhedron.m_face); it != boost::end(pt.m_polyhedron.m_face); it++)
     {
         it->print_facet();
         if (is_visible(it->get<0>(), it->get<1>(), it->get<2>(), point3d(-1,-1,0)) == above)
             std::cout << "Visible\n";
         else
             std::cout << "Not visible\n";
-     }
+     }*/
 }
