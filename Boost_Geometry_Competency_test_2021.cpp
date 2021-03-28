@@ -15,6 +15,9 @@
 
 using namespace boost::geometry;
 
+template<typename Point,std::size_t dim_count,std::size_t dim>
+struct is_equal;
+
 template
 <
     typename Point
@@ -27,9 +30,16 @@ struct facet
         m_facet.push_back(p);
     }
     template<typename Iterator>
-    inline void insert_point(Point const& p, Iterator const* it)
+    void insert_point(Point const& p, Point const &p1,Point const & p2)
     {
-        m_facet.insert(it, p);
+        for (auto it = boost::begin(m_facet); it != boost::end(m_facet) - 1; it++)
+        {
+            if ((is_equal<Point>::apply((*it), p1) && is_equal<Point>::apply(*(it+1), p2) || (is_equal<Point>::apply((*it), p2) && is_equal<Point>::apply(*(it + 1), p1))
+            {
+                m_facet.insert(it, p);
+                return;
+            }
+        }
     }
     inline facet(std::initializer_list<Point> l)
     {
@@ -40,6 +50,26 @@ struct facet
     }
     inline facet()
     {}
+
+    void determine_point_order(Point const& P1, Point const& P2, Point& p1, Point& p2)
+    {
+        for (auto it = boost::begin(m_facet); it != boost::end(m_facet); it++)
+        {
+            if (is_equal<Point>::apply((*it), P1))
+            {
+                p1 = P1;
+                p2 = P2;
+                return;
+            }
+            else if (is_equal<Point>::apply((*it), P2))
+            {
+                p1 = P2;
+                p2 = P1;
+                return;
+            }
+        }
+    }
+
     inline void print_facet()   // function for testing purposes
     {
         for (auto it = boost::begin(m_facet); it != boost::end(m_facet); it++)
@@ -52,14 +82,7 @@ struct facet
     inline Point get()
     {
         BOOST_ASSERT((dim < m_facet.size()));
-        auto it = boost::begin(m_facet);
-        std::size_t count = dim;
-        while (count > 0)
-        {
-            count--;
-            it++;
-        }
-        return *it;
+        return m_facet[dim];
     }
 };
 
@@ -503,17 +526,56 @@ public:
    {
        for (auto it = boost::rbegin(m_unprocessed_points); it != boost::rend(m_unprocessed_points); it++)
        {
-           std::vector<edge<Point>*> edge_list;
-           create_horizon_edge_list(edge_list);
-           for (auto it : edge_list)
-               it->print_edge();
+           std::vector<edge<Point>*> edge_list,new_edge_list;
+           std::vector<facet<Point>*> new_facet_list; 
+           std::set<facet<Point>*> face_set;  // we can other use other efficient spatial index instead of set, but using set for simplicity 
+           std::set<edge<Point>*> edge_set;
+           std::set<vertex<Point>*> vertex_set;
+           create_horizon_edge_list(edge_list,face_set,edge_set,vertex_set);
+           create_vertex_set(edge_set, vertex_set);
        }
    }
 
-   void create_horizon_edge_list(std::vector<edge<Point>*> & edge_list)
+   void update_hull(std::vector<edge<Point>*> const& edge_list,std::set<facet<Point>*> const & face_set,Point const & p)
+   {
+       for (auto it = boost::begin(edge_list); it != boost::end(edge_list) - 2; it++)
+       {
+           facet<Point>* not_visible;
+           if (face_set.find((**it).m_facet1) == face_set.end())
+               not_visible = (**it).m_facet1;
+           else
+               not_visible = (**it).m_facet2;
+           if (is_visible(not_visible->get<0>(), not_visible->get<1>(), not_visible->get<2>(), p) == on)
+           {
+               not_visible->insert_point(p, *((**it).m_v1), *((**it).m_v2));
+           }
+           else
+           {
+
+           }
+       }
+   }
+   
+   void create_vertex_set(std::set<edge<Point>*> const & edge_set,std::set<vertex<Point>*> & vertex_set)
+   {
+       std::set<vertex<Point>*> vertex_temp,temp;
+       for (auto it = boost::begin(edge_set); it != boost::end(edge_set); it++)
+       {
+           vertex_temp.insert((**it).m_v1);
+       }
+       for (auto it = boost::begin(vertex_set); it != boost::end(vertex_set); it++)
+       {
+           if (vertex_temp.find((*it)) == vertex_temp.end())
+               temp.insert((*it));
+       }
+       vertex_set = temp;
+   }
+
+   
+   void create_horizon_edge_list(std::vector<edge<Point>*> & edge_list, std::set<facet<Point>*>& face_set,std::set<edge<Point>*> & edge_set,std::set<vertex<Point>*> & vertex_set)
    {
        std::vector<facet<Point>*> visible_faces = m_conflict_graph.m_point_list.back().second;
-       std::set<facet<Point>*> face_set; // we can other use other efficient spatial index instead of set, but using set for simplicity 
+    
        for (auto it = boost::begin(visible_faces); it != boost::end(visible_faces); it++)
        {
            face_set.insert(*it);
@@ -531,13 +593,21 @@ public:
            }
            std::size_t index = boost::numeric_cast<size_t>(it - boost::begin(m_polyhedron.m_edge));
            if (count == 1)
+           {
                edge_list.push_back(&m_polyhedron.m_edge[index]);
+           }
+           else if (count == 0)
+           {
+               edge_set.insert(&m_polyhedron.m_edge[index]);
+               vertex_set.insert((*it).m_v1);
+               vertex_set.insert((*it).m_v2);
+           }
        }
        std::map<vertex<Point>*, std::size_t> vertex_map;
        for (auto it = boost::begin(edge_list); it != boost::end(edge_list); it++)
        {
            std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(edge_list));
-           vertex_map[(**it).m_v1] = index; // similarly we can use more efficient spatial index, but using map for simplicity
+           vertex_map[(**it).m_v1] = index; // we can use more efficient spatial index, but using map for simplicity
        }
        edge<Point> *edge1 = edge_list.front();
        std::vector<edge<Point>*> edge_temp;
