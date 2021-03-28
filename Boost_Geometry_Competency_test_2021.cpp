@@ -57,14 +57,14 @@ struct facet
         {
             if (is_equal<Point>::apply((*it), P1))
             {
-                p1 = P1;
-                p2 = P2;
+                p1 = P2;
+                p2 = P1;
                 return;
             }
             else if (is_equal<Point>::apply((*it), P2))
             {
-                p1 = P2;
-                p2 = P1;
+                p1 = P1;
+                p2 = P2;
                 return;
             }
         }
@@ -524,8 +524,9 @@ public:
 
    void construct_hull()
    {
-       for (auto it = boost::rbegin(m_unprocessed_points); it != boost::rend(m_unprocessed_points); it++)
+       for (auto it = boost::end(m_unprocessed_points)-1; it != boost::begin(m_unprocessed_points)+1; it--)  // there is need for forward iterators 
        {
+           std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_unprocessed_points));
            std::vector<edge<Point>*> edge_list,new_edge_list;
            std::vector<facet<Point>*> new_facet_list; 
            std::set<facet<Point>*> face_set;  // we can other use other efficient spatial index instead of set, but using set for simplicity 
@@ -536,26 +537,57 @@ public:
        }
    }
 
-   void update_hull(std::vector<edge<Point>*> const& edge_list,std::set<facet<Point>*> const & face_set,Point const & p)
+   void update_hull(std::vector<edge<Point>*> const& edge_list,std::set<facet<Point>*> const & face_set,Point* const & p,std::size_t const & index)
    {
-       for (auto it = boost::begin(edge_list); it != boost::end(edge_list) - 2; it++)
+       
+       m_polyhedron.m_vertex.push_back(vertex<Point>(p));
+       facet<Point>* temp,temp1;
+       for (auto it = boost::begin(edge_list); it != boost::end(edge_list) - 1; it++)
        {
            facet<Point>* not_visible;
            if (face_set.find((**it).m_facet1) == face_set.end())
                not_visible = (**it).m_facet1;
            else
                not_visible = (**it).m_facet2;
-           if (is_visible(not_visible->get<0>(), not_visible->get<1>(), not_visible->get<2>(), p) == on)
+           if (is_visible(not_visible->get<0>(), not_visible->get<1>(), not_visible->get<2>(), *p) == on)
            {
-               not_visible->insert_point(p, *((**it).m_v1), *((**it).m_v2));
+               not_visible->insert_point(*p, *((**it).m_v1), *((**it).m_v2));
+               if (it != boost::begin(edge_list))
+               {
+                   m_polyhedron.m_edge.push_back(edge<Point>(temp, not_visible, p, (**it).m_v1);
+               }
+               else
+               {
+                   temp1 = not_visible;
+               }
+               temp = not_visible;
            }
            else
            {
-
+               Point p1, p2;
+               not_visible->determine_point_order((**it).m_v1.m_point, (**it).m_v2.m_point, p1, p2);
+               facet<Point> face = {p1,p2,*p,p1};
+               m_polyhedron.m_face.push_back(face);
+               if (it != boost::begin(edge_list))
+               {
+                   m_polyhedron.m_edge.push_back(edge<Point>(temp, &face, p, (**it).m_v1));
+               }
+               else
+               {
+                   temp1 = &face;
+               }
+               temp = &face;
            }
        }
+       auto it = boost::begin(edge_list);
+       m_polyhedron.m_edge.push_back(edge<Point>(temp, temp1, p, (**it).m_v1);
    }
    
+   void update_conflict_graph()
+   {
+
+   }
+
    void create_vertex_set(std::set<edge<Point>*> const & edge_set,std::set<vertex<Point>*> & vertex_set)
    {
        std::set<vertex<Point>*> vertex_temp,temp;
