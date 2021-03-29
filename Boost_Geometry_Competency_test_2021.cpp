@@ -42,6 +42,7 @@ struct facet
     void insert_point(Point const& p, Point const &p1,Point const & p2)
     {
         std::size_t index = 0;
+        std::cout << "Points are :" << wkt(p) << " " << wkt(p1) << " " << wkt(p2) << "\n";
         for (auto it = boost::begin(m_facet); it != boost::end(m_facet) - 1; it++)
         {
             if ((is_equal<Point>::apply((*it), p1) && is_equal<Point>::apply(*(it+1), p2)) || (is_equal<Point>::apply((*it), p2) && is_equal<Point>::apply(*(it + 1), p1)))
@@ -662,8 +663,6 @@ public:
        temp = temp1 = not_visible_temp = nullptr;
        for (auto it = boost::begin(edge_list); it != boost::end(edge_list) - 1; it++)
        {
-           std::cout << "edge is:\n\n";
-           (**it).print_edge();
            facet<Point> *not_visible,*visible;
           if (face_set.find((**it).m_facet1) == face_set.end())
            {
@@ -678,6 +677,7 @@ public:
            if (is_visible(not_visible->get<0>(), not_visible->get<1>(), not_visible->get<2>(), p->m_vertex) == on)
            {
                auto itr = it;
+               std::set<vertex<Point>*> vertex_temp,vertex_del;
                for (itr = it; itr != boost::end(edge_list) - 1; itr++)
                {
                    if (face_set.find((**itr).m_facet1) == face_set.end())
@@ -688,16 +688,50 @@ public:
                    {
                        not_visible_temp = (**itr).m_facet2;
                    }
-                   
+                   std::cout << "Not visible face:\n";
+                   not_visible_temp->print_facet();
                    if (not_visible_temp != not_visible)
                    {
                        itr--;
                        break;
                    }
+                   else
+                   {
+                       if (vertex_temp.find((**itr).m_v1) == vertex_temp.end())
+                       {
+                           vertex_temp.insert((**itr).m_v1);
+                       }
+                       else
+                       {
+                           vertex_temp.erase((**itr).m_v1);
+                           vertex_del.insert((**itr).m_v1)
+                       }
+                       if (vertex_temp.find((**itr).m_v2) == vertex_temp.end())
+                       {
+                           vertex_temp.insert((**itr).m_v2);
+                       }
+                       else
+                       {
+                           vertex_temp.erase((**itr).m_v2);
+                           vertex_del.insert((**itr).m_v2)
+                       }
+                   }
+               }
+               vertex<Point>* v1, * v2;
+               v1 = v2 = NULL;
+               for (auto i : vertex_temp)
+               {
+                   if (v1 == NULL)
+                       v1 = i;
+                   else if (v2 == NULL)
+                       v2 = i;
+                   else
+                       break;
                }
                if (itr == boost::end(edge_list) - 1)
                    itr--;
-               not_visible->insert_point(p->m_vertex, (*((**it).m_v1)).m_vertex, (*((**it).m_v2)).m_vertex);
+
+               not_visible->insert_point(p->m_vertex, v1->m_vertex, v2->m_vertex);
                if (it != boost::begin(edge_list))
                {
                    m_polyhedron.add_edge(edge<Point>(temp, not_visible, p, (**it).m_v1));
@@ -750,8 +784,14 @@ public:
        for (auto it = boost::begin(new_facet_list); it != boost::end(new_facet_list); it++)
        {
            std::vector<unprocessed_point<Point>*> union_result;
-           
+               
        }
+   }
+
+   void preprocess(std::set<vertex<Point>*> const& vertex_del, facet<Point>* face)
+   {
+       facet<Point> face1;
+       for(auto it=boost::begin(face))
    }
 
    void create_union(std::vector<unprocessed_point<Point>*> const& v1, std::vector<unprocessed_point<Point>*> const& v2, std::vector<unprocessed_point<Point>*>& result)
