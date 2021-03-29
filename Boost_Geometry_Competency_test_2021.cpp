@@ -598,6 +598,42 @@ public:
        }
    }
 
+   facet<Point>* get_invisible_face(edge<Point> * edge,std::set<facet<Point>*> const &face_set)
+   {
+       facet<Point>* invisible;
+       if (face_set.find((*edge).m_facet1) == face_set.end())
+       {
+           invisible = (*edge).m_facet1;
+       }
+       else
+       {
+           invisible = (*edge).m_facet2;
+       }
+       return invisible;
+   }
+   
+   void order_edge_list(std::vector<edge<Point>*> & edge_list,std::set<facet<Point>*> const & face_set)
+   {
+       auto it1 = boost::begin(edge_list);
+       auto it2 = boost::begin(edge_list);
+       while (get_invisible_face(*it1, face_set) == get_invisible_face(*it2, face_set))
+       {
+           it1++;
+       }
+       it1;
+       std::vector<edge<Point>*> edge_temp;
+       for (auto it = it1; it != boost::end(edge_list)-1; it++)
+       {
+           edge_temp.push_back(*it);
+       }
+       for (auto it = boost::begin(edge_list); it != it1; it++)
+       {
+           edge_temp.push_back(*it);
+       }
+       edge_temp.push_back(*it1);
+       edge_list = edge_temp;
+   }
+
    void construct_hull()
    {
        for (auto it = boost::rbegin(m_unprocessed_points); it != boost::rend(m_unprocessed_points); it++)  // there is need for forward iterators 
@@ -608,7 +644,7 @@ public:
            std::set<edge<Point>*> edge_set;
            std::set<vertex<Point>*> vertex_set;
            create_horizon_edge_list(edge_list,face_set,edge_set,vertex_set);
-           
+           order_edge_list(edge_list, face_set);
            create_vertex_set(edge_set, vertex_set);
            
            vertex<Point> v1(it->m_point);
@@ -622,10 +658,12 @@ public:
    void update_hull(std::vector<edge<Point>*> & edge_list,std::set<facet<Point>*> const & face_set,vertex<Point>* const p,face_list & new_facet_list)
    {
        m_polyhedron.add_vertex(vertex<Point>(*p));
-       facet<Point>* temp,*temp1;
-       temp = temp1 = nullptr;
+       facet<Point>* temp,*not_visible_temp,*temp1;
+       temp = temp1 = not_visible_temp = nullptr;
        for (auto it = boost::begin(edge_list); it != boost::end(edge_list) - 1; it++)
        {
+           std::cout << "edge is:\n\n";
+           (**it).print_edge();
            facet<Point> *not_visible,*visible;
           if (face_set.find((**it).m_facet1) == face_set.end())
            {
@@ -639,6 +677,26 @@ public:
            }
            if (is_visible(not_visible->get<0>(), not_visible->get<1>(), not_visible->get<2>(), p->m_vertex) == on)
            {
+               auto itr = it;
+               for (itr = it; itr != boost::end(edge_list) - 1; itr++)
+               {
+                   if (face_set.find((**itr).m_facet1) == face_set.end())
+                   {
+                       not_visible_temp = (**itr).m_facet1;
+                   }
+                   else
+                   {
+                       not_visible_temp = (**itr).m_facet2;
+                   }
+                   
+                   if (not_visible_temp != not_visible)
+                   {
+                       itr--;
+                       break;
+                   }
+               }
+               if (itr == boost::end(edge_list) - 1)
+                   itr--;
                not_visible->insert_point(p->m_vertex, (*((**it).m_v1)).m_vertex, (*((**it).m_v2)).m_vertex);
                if (it != boost::begin(edge_list))
                {
@@ -649,6 +707,8 @@ public:
                    temp1 = not_visible;
                }
                temp = not_visible;
+               it = itr;
+
            }
            else
            {
@@ -662,7 +722,6 @@ public:
                }
                else
                {
-                   
                    temp1 = &face;
                }
                temp = &face;
@@ -759,20 +818,43 @@ public:
                vertex_set.insert((*it).m_v2);
            }
        }
-       std::map<vertex<Point>*, std::size_t> vertex_map;
+       std::map<vertex<Point>*, std::vector<std::size_t>> vertex_map1,vertex_map2;
        for (auto it = boost::begin(edge_list); it != boost::end(edge_list); it++)
        {
            std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(edge_list));
-           vertex_map[(**it).m_v1] = index; // we can use more efficient spatial index, but using map for simplicity
+           vertex_map1[(**it).m_v1].push_back(index); // we can use more efficient spatial index, but using map for simplicity
+           vertex_map2[(**it).m_v2].push_back(index);
        }
        edge<Point> *edge1 = edge_list.front();
        std::vector<edge<Point>*> edge_temp;
        edge_temp.push_back(edge1);
-       edge<Point> *temp,*temp1;
+       edge<Point> *temp,*temp1,*temp3;
+       temp1 = temp = temp3 = NULL;
+       vertex<Point>* temp2;
+       temp2 = edge1->m_v2;
        do
        {
            temp = edge_temp.back();
-           temp1 = edge_list[vertex_map[(*temp).m_v2]];
+           std::vector<edge<Point>*> vec;
+           if (vertex_map1[temp2].size())
+           {
+               for (auto it : vertex_map1[temp2])
+                   vec.push_back(edge_list[it]);
+           }
+           if (vertex_map2[temp2].size())
+           {
+               for (auto it : vertex_map2[temp2])
+                   vec.push_back(edge_list[it]);
+           }
+           for (auto it = boost::begin(vec); it != boost::end(vec); it++)
+           {
+               if ((*it) != temp)
+               {
+                   temp1 = *it;
+                   break;
+               }
+           }
+           temp2 = return_alternate(*temp1, temp2);
            edge_temp.push_back(temp1);
        } while (temp1!=edge1);
        edge_list.clear();
@@ -780,7 +862,13 @@ public:
        {
            edge_list.push_back(*it);
        }
-       edge_list.push_back(edge1);
+   }
+
+   inline vertex<Point>* return_alternate(edge<Point> const& edge, vertex<Point>* const& vertex)
+   {
+       if (edge.m_v1 == vertex)
+           return edge.m_v2;
+       return edge.m_v1;
    }
 
    // should be declared as private, but public in this case for ease of testing
