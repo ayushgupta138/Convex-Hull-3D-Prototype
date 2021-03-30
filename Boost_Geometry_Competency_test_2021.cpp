@@ -69,21 +69,18 @@ struct facet
 
     void determine_point_order(Point const& P1, Point const& P2, Point& p1, Point& p2)
     {
-        std::cout << "for point order\n" << wkt(P1) << " " << wkt(P2) << "\n\n";
         for (auto it = boost::begin(m_facet); it != boost::end(m_facet); it++)
         {
-            if (is_equal<Point>::apply((*it), P1))
+            if (is_equal<Point>::apply((*it), P1) && is_equal<Point>::apply(*(it+1),P2))
             {
                 p1 = P2;
                 p2 = P1;
-                std::cout << "for point order1\n" << wkt(p1) << " " << wkt(p2) << "\n\n";
                 return;
             }
-            else if (is_equal<Point>::apply((*it), P2))
+            else if (is_equal<Point>::apply((*it), P2) && is_equal<Point>::apply(*(it + 1), P1))
             {
                 p1 = P1;
                 p2 = P2;
-                std::cout << "for point order1\n" << wkt(p1) << " " << wkt(p2) << "\n\n";
                 return;
             }
         }
@@ -680,19 +677,71 @@ public:
            create_horizon_edge_list(edge_list,face_set,edge_set,vertex_set);
            order_edge_list(edge_list, face_set);
            create_vertex_set(edge_set, vertex_set);
-           
            vertex<Point> v1(it->m_point);
            m_polyhedron.add_vertex(v1);
-           update_hull(edge_list, face_set, &v1, new_facet_list,vertex_set);
-           std::cout << "polygon is:\n";
-           m_polyhedron.print_poly_facet();
+           update_hull(edge_list, face_set, &v1, new_facet_list,vertex_set,edge_set);
            update_conflict_graph(new_facet_list);
-           std::cout << "conflict graph is:\n";
-           m_conflict_graph.print_graph();
+           clean_up(face_set,edge_set,vertex_set);
+           std::cout << "Point added is:\n\n" << wkt((*it).m_point) << "\n";
+           std::cout << "polygon is:\n\n";
+           m_polyhedron.print_poly_facet();
        }
    }
 
-   void update_hull(std::vector<edge<Point>*> & edge_list,std::set<facet<Point>*> const & face_set,vertex<Point>* const p,face_list & new_facet_list,std::set<vertex<Point>*> &vertex_set)
+   void clean_up(std::set<facet<Point>*> const& face_set, std::set<edge<Point>*> const& edge_set, std::set<vertex<Point>*> const& vertex_set)
+   {
+       std::set<facet<Point>*> face_set_new;  
+       std::set<edge<Point>*> edge_set_new;
+       std::set<vertex<Point>*> vertex_set_new;
+       for (auto it = boost::begin(m_polyhedron.m_face_ptr); it != boost::end(m_polyhedron.m_face_ptr); it++)
+       {
+           if (face_set.find(*it) == face_set.end())
+           {
+               face_set_new.insert(*it);
+           }
+       }
+       for (auto it = boost::begin(m_polyhedron.m_edge_ptr); it != boost::end(m_polyhedron.m_edge_ptr); it++)
+       {
+           if (edge_set.find(*it) == edge_set.end())
+           {
+               edge_set_new.insert(*it);
+           }
+       }
+
+       for (auto it = boost::begin(m_polyhedron.m_vertex_ptr); it != boost::end(m_polyhedron.m_vertex_ptr); it++)
+       {
+           if (vertex_set.find(*it) == vertex_set.end())
+           {
+               vertex_set_new.insert(*it);
+           }
+       }
+       m_polyhedron.m_face.clear();
+       m_polyhedron.m_face_ptr.clear();
+       m_polyhedron.m_edge.clear();
+       m_polyhedron.m_edge_ptr.clear();
+       m_polyhedron.m_vertex.clear();
+       m_polyhedron.m_vertex_ptr.clear();
+
+       for (auto it = boost::begin(face_set_new); it != boost::end(face_set_new); it++)
+       {
+           m_polyhedron.m_face_ptr.push_back(*it);
+           m_polyhedron.m_face.push_back(**it);
+       }
+
+       for (auto it = boost::begin(edge_set_new); it != boost::end(edge_set_new); it++)
+       {
+           m_polyhedron.m_edge_ptr.push_back(*it);
+           m_polyhedron.m_edge.push_back(**it);
+       }
+
+       for (auto it = boost::begin(vertex_set_new); it != boost::end(vertex_set_new); it++)
+       {
+           m_polyhedron.m_vertex_ptr.push_back(*it);
+           m_polyhedron.m_vertex.push_back(**it);
+       }
+   }
+
+   void update_hull(std::vector<edge<Point>*> & edge_list,std::set<facet<Point>*> const & face_set,vertex<Point>* const p,face_list & new_facet_list,std::set<vertex<Point>*> &vertex_set,std::set<edge<Point>*> & edge_set)
    {
        m_polyhedron.add_vertex(vertex<Point>(*p));
        facet<Point>* temp,*not_visible_temp,*temp1;
@@ -732,6 +781,7 @@ public:
                    }
                    else
                    {
+                       edge_set.insert(*itr);
                        if (vertex_temp.find((**itr).m_v1) == vertex_temp.end())
                        {
                            vertex_temp.insert((**itr).m_v1);
@@ -786,9 +836,6 @@ public:
                Point p1, p2;
                not_visible->determine_point_order((**it).m_v1->m_vertex, (**it).m_v2->m_vertex, p1, p2);
                facet<Point> face = {p1,p2,p->m_vertex,p1};
-               std::cout << "Face is:\n";
-               face.print_facet();
-               std::cout << "\n\n";
                m_polyhedron.add_face(face);
                if (it != boost::begin(edge_list))
                {
@@ -899,17 +946,17 @@ public:
 
    void create_vertex_set(std::set<edge<Point>*> const & edge_set,std::set<vertex<Point>*> & vertex_set)
    {
-       std::set<vertex<Point>*> vertex_temp,temp;
        for (auto it = boost::begin(edge_set); it != boost::end(edge_set); it++)
        {
-           vertex_temp.insert((**it).m_v1);
+           if (vertex_set.find((**it).m_v1) != vertex_set.end())
+           {
+               vertex_set.erase((**it).m_v1);
+           }
+           if (vertex_set.find((**it).m_v2) != vertex_set.end())
+           {
+               vertex_set.erase((**it).m_v2);
+           }
        }
-       for (auto it = boost::begin(vertex_set); it != boost::end(vertex_set); it++)
-       {
-           if (vertex_temp.find((*it)) == vertex_temp.end())
-               temp.insert((*it));
-       }
-       vertex_set = temp;
    }
 
    
@@ -936,7 +983,7 @@ public:
            {
                edge_list.push_back(m_polyhedron.m_edge_ptr[index]);
            }
-           else if (count == 0)
+           else if (count == 2)
            {
                edge_set.insert(m_polyhedron.m_edge_ptr[index]);
                vertex_set.insert((*it).m_v1);
