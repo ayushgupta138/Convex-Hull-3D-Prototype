@@ -8,6 +8,7 @@
 #include<chrono> 
 #include<set>
 #include<map>
+#include<unordered_set>
 
 #include<boost/geometry.hpp>
 
@@ -122,6 +123,23 @@ struct vertex
     inline void get_pointer()
     {
         return &m_vertex;
+    }
+
+};
+
+template
+<
+    typename Point
+>
+struct comp
+{
+    bool operator()(vertex<Point> const& v1, vertex<Point> const& v2) const
+    {
+        if (get<0>(v1.m_vertex) != get<0>(v2.m_vertex))
+            return get<0>(v1.m_vertex) < get<0>(v2.m_vertex);
+        else if (get<1>(v1.m_vertex) != get<1>(v2.m_vertex))
+            return get<1>(v1.m_vertex) < get<1>(v2.m_vertex);
+        return get<2>(v1.m_vertex) < get<2>(v2.m_vertex);
     }
 };
 
@@ -676,8 +694,9 @@ public:
            }
            if (is_visible(not_visible->get<0>(), not_visible->get<1>(), not_visible->get<2>(), p->m_vertex) == on)
            {
+               std::set<vertex<Point>*> vertex_temp;
+               std::set<vertex<Point>,comp<Point>>  vertex_del;
                auto itr = it;
-               std::set<vertex<Point>*> vertex_temp,vertex_del;
                for (itr = it; itr != boost::end(edge_list) - 1; itr++)
                {
                    if (face_set.find((**itr).m_facet1) == face_set.end())
@@ -688,8 +707,6 @@ public:
                    {
                        not_visible_temp = (**itr).m_facet2;
                    }
-                   std::cout << "Not visible face:\n";
-                   not_visible_temp->print_facet();
                    if (not_visible_temp != not_visible)
                    {
                        itr--;
@@ -704,7 +721,7 @@ public:
                        else
                        {
                            vertex_temp.erase((**itr).m_v1);
-                           vertex_del.insert((**itr).m_v1)
+                           vertex_del.insert(*((**itr).m_v1));
                        }
                        if (vertex_temp.find((**itr).m_v2) == vertex_temp.end())
                        {
@@ -713,7 +730,7 @@ public:
                        else
                        {
                            vertex_temp.erase((**itr).m_v2);
-                           vertex_del.insert((**itr).m_v2)
+                           vertex_del.insert(*((**itr).m_v2));
                        }
                    }
                }
@@ -730,7 +747,9 @@ public:
                }
                if (itr == boost::end(edge_list) - 1)
                    itr--;
-
+               preprocess(vertex_del, not_visible);
+               std::cout << "Preprocesses face is:\n\n";
+               not_visible->print_facet();
                not_visible->insert_point(p->m_vertex, v1->m_vertex, v2->m_vertex);
                if (it != boost::begin(edge_list))
                {
@@ -788,10 +807,22 @@ public:
        }
    }
 
-   void preprocess(std::set<vertex<Point>*> const& vertex_del, facet<Point>* face)
+   void preprocess(std::set<vertex<Point>,comp<Point>> const& vertex_del, facet<Point>* face)
    {
        facet<Point> face1;
-       for(auto it=boost::begin(face))
+       for (auto it = boost::begin(face->m_facet); it != boost::end(face->m_facet); it++)
+       {
+           if (vertex_del.find(vertex<Point>(*it)) == vertex_del.end())
+           {
+               face1.add_point(*it);
+           }
+       }
+       if (!is_equal<Point>::apply(*(boost::begin(face1.m_facet)),*(boost::rbegin(face1.m_facet))))
+       {
+           Point p = *(boost::begin(face1.m_facet));
+           face1.add_point(p);
+       }
+       (*face) = face1;
    }
 
    void create_union(std::vector<unprocessed_point<Point>*> const& v1, std::vector<unprocessed_point<Point>*> const& v2, std::vector<unprocessed_point<Point>*>& result)
@@ -930,12 +961,12 @@ int main()
    
     convex_hull_3D<point3d> pt;
     pt.initialize_hull(mul);
-    /*for (auto it = boost::begin(pt.m_polyhedron.m_face); it != boost::end(pt.m_polyhedron.m_face); it++)
+    for (auto it = boost::begin(pt.m_polyhedron.m_face); it != boost::end(pt.m_polyhedron.m_face); it++)
     {
         it->print_facet();
-        if (is_visible(it->get<0>(), it->get<1>(), it->get<2>(), point3d(-1,-1,0)) == above)
+        if (is_visible(it->get<0>(), it->get<1>(), it->get<2>(), point3d(0.2,0.2,0.2)) == above)
             std::cout << "Visible\n";
         else
             std::cout << "Not visible\n";
-     }*/
+     }
 }
