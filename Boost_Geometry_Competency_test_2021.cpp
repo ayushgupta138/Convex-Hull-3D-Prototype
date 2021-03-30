@@ -545,7 +545,6 @@ public:
             m_unprocessed_points_ptr.push_back(it->second);
         }
         construct_initial_conflict_graph();
-        construct_hull();
     }
    template
         <
@@ -682,8 +681,7 @@ public:
            update_hull(edge_list, face_set, &v1, new_facet_list,vertex_set,edge_set);
            update_conflict_graph(new_facet_list);
            clean_up(face_set,edge_set,vertex_set);
-           std::cout << "Point added is:\n\n" << wkt((*it).m_point) << "\n";
-           std::cout << "polygon is:\n\n";
+           std::cout << "Point added:\n\n" << wkt((*it).m_point) << "\n\n";
            m_polyhedron.print_poly_facet();
        }
    }
@@ -1050,6 +1048,18 @@ public:
         std::vector<unprocessed_point<Point>*> m_unprocessed_points_ptr;
 };
 
+template
+<
+    typename Geometry1
+>
+polyhedron<model::d3::point_xyz<double>> convex_hull3D(Geometry1 const& input)
+{
+    convex_hull_3D<model::d3::point_xyz<double>> hull;
+    hull.initialize_hull(input);
+    hull.construct_hull();
+    return hull.m_polyhedron;
+}
+
 int main()
 {
     std::cout << "Hello World!\n";
@@ -1058,16 +1068,8 @@ int main()
     typedef model::ring<point3d> rng;
     //std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
-    read_wkt("MULTIPOINT(0 0 0, 1 0 0 , 0 0 1 , 0 1 0 , -1 -1 0,1 1 1 )", mul);
-   
-    convex_hull_3D<point3d> pt;
-    pt.initialize_hull(mul);
-    for (auto it = boost::begin(pt.m_polyhedron.m_face); it != boost::end(pt.m_polyhedron.m_face); it++)
-    {
-        it->print_facet();
-        if (is_visible(it->get<0>(), it->get<1>(), it->get<2>(), point3d(0.2,0.2,0.2)) == above)
-            std::cout << "Visible\n";
-        else
-            std::cout << "Not visible\n";
-     }
+    read_wkt("MULTIPOINT(0 0 0, 0 0 2 , 2 0 0 , 0 2 0 , 0 2 2 , 2 2 0 , 2 0 2 , 2 2 2 , 1 1 1 )", mul);
+    polyhedron<point3d> result;
+    result = convex_hull3D(mul);
+    result.print_poly_facet();
 }
