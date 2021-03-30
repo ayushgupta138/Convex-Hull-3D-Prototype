@@ -43,7 +43,6 @@ struct facet
     void insert_point(Point const& p, Point const &p1,Point const & p2)
     {
         std::size_t index = 0;
-        std::cout << "Points are :" << wkt(p) << " " << wkt(p1) << " " << wkt(p2) << "\n";
         for (auto it = boost::begin(m_facet); it != boost::end(m_facet) - 1; it++)
         {
             if ((is_equal<Point>::apply((*it), p1) && is_equal<Point>::apply(*(it+1), p2)) || (is_equal<Point>::apply((*it), p2) && is_equal<Point>::apply(*(it + 1), p1)))
@@ -70,18 +69,21 @@ struct facet
 
     void determine_point_order(Point const& P1, Point const& P2, Point& p1, Point& p2)
     {
+        std::cout << "for point order\n" << wkt(P1) << " " << wkt(P2) << "\n\n";
         for (auto it = boost::begin(m_facet); it != boost::end(m_facet); it++)
         {
             if (is_equal<Point>::apply((*it), P1))
             {
                 p1 = P2;
                 p2 = P1;
+                std::cout << "for point order1\n" << wkt(p1) << " " << wkt(p2) << "\n\n";
                 return;
             }
             else if (is_equal<Point>::apply((*it), P2))
             {
                 p1 = P1;
                 p2 = P2;
+                std::cout << "for point order1\n" << wkt(p1) << " " << wkt(p2) << "\n\n";
                 return;
             }
         }
@@ -530,8 +532,21 @@ public:
                 add_unprocessed_point(unprocessed_point<Point>(*it));
             }
         }
+        std::vector<std::pair<unprocessed_point<Point>, unprocessed_point<Point>*>> point_shuffle;
+        for (auto it = boost::begin(m_unprocessed_points); it != boost::end(m_unprocessed_points); it++)
+        {
+            std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_unprocessed_points));
+            point_shuffle.push_back(std::make_pair(*it, m_unprocessed_points_ptr[index]));
+        }
         unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-        std::shuffle(boost::begin(m_unprocessed_points), boost::end(m_unprocessed_points), std::default_random_engine(seed));
+        std::shuffle(boost::begin(point_shuffle), boost::end(point_shuffle), std::default_random_engine(seed));
+        m_unprocessed_points.clear();
+        m_unprocessed_points_ptr.clear();
+        for (auto it = boost::begin(point_shuffle); it != boost::end(point_shuffle); it++)
+        {
+            m_unprocessed_points.push_back(it->first);
+            m_unprocessed_points_ptr.push_back(it->second);
+        }
         construct_initial_conflict_graph();
         construct_hull();
     }
@@ -597,7 +612,6 @@ public:
            }
            point_it++;
        }
-       //m_conflict_graph.print_graph();
    }
 
  
@@ -609,6 +623,7 @@ public:
            std::vector<unprocessed_point<Point>*> poin;
            m_conflict_graph.m_facet_list.push_back(std::make_pair(m_polyhedron.m_face_ptr[index], poin));
        }
+       m_conflict_graph.m_point_list.clear();
        for (auto it = boost::begin(m_unprocessed_points); it != boost::end(m_unprocessed_points); it++)
        {
            std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_unprocessed_points));
@@ -668,13 +683,16 @@ public:
            
            vertex<Point> v1(it->m_point);
            m_polyhedron.add_vertex(v1);
-           update_hull(edge_list, face_set, &v1, new_facet_list);
+           update_hull(edge_list, face_set, &v1, new_facet_list,vertex_set);
            std::cout << "polygon is:\n";
            m_polyhedron.print_poly_facet();
+           update_conflict_graph(new_facet_list);
+           std::cout << "conflict graph is:\n";
+           m_conflict_graph.print_graph();
        }
    }
 
-   void update_hull(std::vector<edge<Point>*> & edge_list,std::set<facet<Point>*> const & face_set,vertex<Point>* const p,face_list & new_facet_list)
+   void update_hull(std::vector<edge<Point>*> & edge_list,std::set<facet<Point>*> const & face_set,vertex<Point>* const p,face_list & new_facet_list,std::set<vertex<Point>*> &vertex_set)
    {
        m_polyhedron.add_vertex(vertex<Point>(*p));
        facet<Point>* temp,*not_visible_temp,*temp1;
@@ -722,6 +740,7 @@ public:
                        {
                            vertex_temp.erase((**itr).m_v1);
                            vertex_del.insert(*((**itr).m_v1));
+                           vertex_set.insert((**itr).m_v1);
                        }
                        if (vertex_temp.find((**itr).m_v2) == vertex_temp.end())
                        {
@@ -731,6 +750,7 @@ public:
                        {
                            vertex_temp.erase((**itr).m_v2);
                            vertex_del.insert(*((**itr).m_v2));
+                           vertex_set.insert((**itr).m_v2);
                        }
                    }
                }
@@ -748,8 +768,6 @@ public:
                if (itr == boost::end(edge_list) - 1)
                    itr--;
                preprocess(vertex_del, not_visible);
-               std::cout << "Preprocesses face is:\n\n";
-               not_visible->print_facet();
                not_visible->insert_point(p->m_vertex, v1->m_vertex, v2->m_vertex);
                if (it != boost::begin(edge_list))
                {
@@ -768,6 +786,9 @@ public:
                Point p1, p2;
                not_visible->determine_point_order((**it).m_v1->m_vertex, (**it).m_v2->m_vertex, p1, p2);
                facet<Point> face = {p1,p2,p->m_vertex,p1};
+               std::cout << "Face is:\n";
+               face.print_facet();
+               std::cout << "\n\n";
                m_polyhedron.add_face(face);
                if (it != boost::begin(edge_list))
                {
@@ -778,16 +799,34 @@ public:
                    temp1 = &face;
                }
                temp = &face;
-               new_facet_list.push_back(std::make_pair(&face, std::make_pair(visible, not_visible)));
+               new_facet_list.push_back(std::make_pair(m_polyhedron.m_face_ptr.back(), std::make_pair(visible, not_visible)));
            }
        }
        auto it = boost::begin(edge_list);
        m_polyhedron.add_edge(edge<Point>(temp, temp1, p, (**it).m_v1));
    }
-   
-   void update_conflict_graph(face_list const & new_facet_list,std::size_t const &index)
+   template
+       <
+       typename T
+       >
+   void erase_points(std::vector<T>& point_list, T points)
    {
-       m_conflict_graph.m_point_list.pop_back();
+       auto del = boost::begin(point_list);
+       for (auto it = boost::begin(point_list); it != boost::end(point_list); it++)
+       {
+           if ((*it) == points)
+           {
+               del = it;
+               break;
+           }
+       }
+       point_list.erase(del);
+   }
+
+   void update_conflict_graph(face_list const & new_facet_list)
+   {
+       if (m_conflict_graph.m_point_list.size() < 2)
+           return;
        std::map<unprocessed_point<Point>*, std::size_t> point_map;
        std::map<facet<Point>*, std::size_t> face_map;
        for (auto it = boost::begin(m_conflict_graph.m_point_list); it != boost::end(m_conflict_graph.m_point_list); it++)
@@ -800,10 +839,22 @@ public:
            std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_conflict_graph.m_facet_list));
            face_map[(*it).first] = index;
        }
+
+       for (auto it = boost::begin(m_conflict_graph.m_point_list.back().second); it != boost::end(m_conflict_graph.m_point_list.back().second); it++)
+       {
+           erase_points(m_conflict_graph.m_facet_list[face_map[*it]].second, m_conflict_graph.m_point_list.back().first);
+       }
+       m_conflict_graph.m_point_list.pop_back();
        for (auto it = boost::begin(new_facet_list); it != boost::end(new_facet_list); it++)
        {
            std::vector<unprocessed_point<Point>*> union_result;
-               
+           facet<Point>* face = (*it).first;
+           create_union(m_conflict_graph.m_facet_list[face_map[(*it).second.first]].second, m_conflict_graph.m_facet_list[face_map[(*it).second.second]].second, union_result,face);
+           m_conflict_graph.m_facet_list.push_back(std::make_pair((*it).first, union_result));
+           for (auto itr = boost::begin(union_result); itr != boost::end(union_result); itr++)
+           {
+               m_conflict_graph.m_point_list[point_map[*itr]].second.push_back(face);
+           }
        }
    }
 
@@ -825,7 +876,7 @@ public:
        (*face) = face1;
    }
 
-   void create_union(std::vector<unprocessed_point<Point>*> const& v1, std::vector<unprocessed_point<Point>*> const& v2, std::vector<unprocessed_point<Point>*>& result)
+   void create_union(std::vector<unprocessed_point<Point>*> const& v1, std::vector<unprocessed_point<Point>*> const& v2, std::vector<unprocessed_point<Point>*>& result,facet<Point>* face)
    {
        std::set<unprocessed_point<Point>*> u_set;
        for (auto it = boost::begin(v1); it != boost::end(v1); it++)
@@ -839,7 +890,10 @@ public:
        result.clear();
        for (auto it = boost::begin(u_set); it != boost::end(u_set); it++)
        {
-           result.push_back(*it);
+           if (is_visible(face->get<0>(), face->get<1>(), face->get<2>(), (*it)->m_point) == above)
+           {
+               result.push_back(*it);
+           }
        }
    }
 
@@ -957,7 +1011,7 @@ int main()
     typedef model::ring<point3d> rng;
     //std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
-    read_wkt("MULTIPOINT(0 0 0, 1 0 0 , 0 0 1 , 0 1 0 , -1 -1 0 )", mul);
+    read_wkt("MULTIPOINT(0 0 0, 1 0 0 , 0 0 1 , 0 1 0 , -1 -1 0,1 1 1 )", mul);
    
     convex_hull_3D<point3d> pt;
     pt.initialize_hull(mul);
