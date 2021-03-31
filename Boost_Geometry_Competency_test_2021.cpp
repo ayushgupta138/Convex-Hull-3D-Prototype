@@ -309,7 +309,6 @@ struct conflict_graph
         for (auto it = boost::begin(m_facet_list); it != boost::end(m_facet_list); it++)
         {
             (*(*it).first).print_facet();
-            //std::cout << (*it).first << "\n";
             std::cout << " : \n";
             for (auto itr = boost::begin((*it).second); itr != boost::end((*it).second); itr++)
             {
@@ -325,7 +324,6 @@ struct conflict_graph
             for (auto itr = boost::begin((*it).second); itr != boost::end((*it).second); itr++)
             {
                 (*(*itr)).print_facet();
-                //std::cout << (*itr) << "\n";
             }
         }
     }
@@ -549,7 +547,7 @@ public:
             point_shuffle.push_back(std::make_pair(*it, m_unprocessed_points_ptr[index]));
         }
         unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-        //std::shuffle(boost::begin(point_shuffle), boost::end(point_shuffle), std::default_random_engine(seed));
+        std::shuffle(boost::begin(point_shuffle), boost::end(point_shuffle), std::default_random_engine(seed));
         m_unprocessed_points.clear();
         m_unprocessed_points_ptr.clear();
         for (auto it = boost::begin(point_shuffle); it != boost::end(point_shuffle); it++)
@@ -598,7 +596,6 @@ public:
         m_polyhedron.add_edge(edge<Point>(m_polyhedron.get_face<0>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<1>(), m_polyhedron.get_vertex<2>()));
         m_polyhedron.add_edge(edge<Point>(m_polyhedron.get_face<1>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<1>(), m_polyhedron.get_vertex<3>()));
         m_polyhedron.add_edge(edge<Point>(m_polyhedron.get_face<3>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<2>(), m_polyhedron.get_vertex<3>()));
-        //m_polyhedron.print_poly_facet();
     }
     
    void construct_initial_conflict_graph()
@@ -628,7 +625,6 @@ public:
    {
        for (auto it = boost::begin(m_polyhedron.m_face_ptr); it != boost::end(m_polyhedron.m_face_ptr); it++)
        {
-           //std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_polyhedron.m_face));
            std::vector<unprocessed_point<Point>*> poin;
            m_conflict_graph.m_facet_list.push_back(std::make_pair(*it, poin));
        }
@@ -680,70 +676,26 @@ public:
 
    void construct_hull()
    {
-       int x = 0;
        for (auto it = boost::rbegin(m_unprocessed_points); it != boost::rend(m_unprocessed_points); it++)   
        {
-           //std::cout << "Point is:\n";
-           //it->print();
            std::vector<edge<Point>*> edge_list;
            face_list new_facet_list;
            std::set<facet<Point>*> face_set;  // we can other use other efficient spatial index instead of set, but using set for simplicity 
            std::set<edge<Point>*> edge_set;
            std::set<vertex<Point>*> vertex_set;
-           //m_polyhedron.print_edges();
-           //std::cout << "faces\n\n";
-           //m_polyhedron.print_poly_facet();
-          // std::cout << "vertex\n\n";
-         //  m_polyhedron.print_vertex();
-           //std::cout << "conflict\n\n";
-           //m_conflict_graph.print_graph();
-          // if (x == 1)
-           //    return;
-           //std::cout << "face ptr:\n\n";
-           //for (auto it : m_polyhedron.m_face_ptr)
-             //  std::cout << it << "\n";
-           //std::cout << "end\n\n";
            create_horizon_edge_list(edge_list,face_set,edge_set,vertex_set);
-           //std::cout << "face set:\n\n";
-           //for (auto it : face_set)
-             //  std::cout << it << "\n";
-           //std::cout << "end\n\n";
-           //if (x == 2)
-             //return;
            if (face_set.size() == 0)
            {
                update_conflict_graph(new_facet_list);
                continue;
            }
            order_edge_list(edge_list, face_set);
-           //std::cout << "edge list:\n\n";
-           //for (auto it : edge_list)
-             //  it->print_edge();
-           //std::cout << "end\n\n";
-           
-           /*std::cout << "conflict is:\n";
-           m_conflict_graph.print_graph();
-           std::cout << "end\n\n";*/
            create_vertex_set(edge_set, vertex_set);
            vertex<Point> v1(it->m_point);
            m_polyhedron.add_vertex(v1);
            update_hull(edge_list, face_set, m_polyhedron.m_vertex_ptr.back(), new_facet_list,vertex_set,edge_set);
-           //x++;
-           //return;
-           
-           //std::cout << "new facet _list:\n\n";
-           //for (auto it : new_facet_list)
-             //  std::cout << it.first << "\n";
-           //std::cout << "end\n\n";
-
-           //std::cout << "poly faces:\n\n";
-           //for (auto it : m_polyhedron.m_face_ptr)
-             //  std::cout << it << "\n";
-           //std::cout << "end\n\n";
            update_conflict_graph(new_facet_list);
-           clean_up(face_set,edge_set,vertex_set);
-           //m_polyhedron.print_poly_facet();
-           //std::cout << "\n\n";
+           clean_up(face_set, edge_set, vertex_set);
        }
    }
 
@@ -804,10 +756,6 @@ public:
    {
        facet<Point>* temp,*not_visible_temp,*temp1;
        temp = temp1 = not_visible_temp = nullptr;
-      // std::cout << "edge list:\n\n";
-      // for (auto it : edge_list)
-     //      it->print_edge();
-       //std::cout << "end\n\n";
        for (auto it = boost::begin(edge_list); it != boost::end(edge_list) - 1; it++)
        {
            facet<Point> *not_visible,*visible;
@@ -823,9 +771,6 @@ public:
            }
            if (is_visible(not_visible->get<0>(), not_visible->get<1>(), not_visible->get<2>(), p->m_vertex) == on)
            {
-               //std::cout << "yon\n";
-               //not_visible->print_facet();
-               //p->print();
                std::set<vertex<Point>*> vertex_temp;
                std::set<vertex<Point>,comp<Point>>  vertex_del;
                auto itr = it;
@@ -884,9 +829,7 @@ public:
                not_visible->insert_point(p->m_vertex, v1->m_vertex, v2->m_vertex);
                if (it != boost::begin(edge_list))
                {
-                   //std::cout << "edge added is:\n\n";
                    m_polyhedron.add_edge(edge<Point>(temp, not_visible, p, (**it).m_v1));
-                   //m_polyhedron.m_edge_ptr.back()->print_edge();
                }
                else
                {
@@ -898,7 +841,6 @@ public:
            }
            else
            {
-               //std::cout << "non\n";
                Point p1, p2;
                not_visible->determine_point_order((**it).m_v1->m_vertex, (**it).m_v2->m_vertex, p1, p2);
                facet<Point> face = {p1,p2,p->m_vertex,p1};
@@ -906,9 +848,7 @@ public:
                update_edge_facets(*it, visible, m_polyhedron.m_face_ptr.back());
                if (it != boost::begin(edge_list))
                {
-                   //std::cout << "edge added is:\n\n";
                    m_polyhedron.add_edge(edge<Point>(temp, m_polyhedron.m_face_ptr.back(), p, (**it).m_v1));
-                   //m_polyhedron.m_edge_ptr.back()->print_edge();
                }
                else
                {
@@ -919,9 +859,7 @@ public:
            }
        }
        auto it = boost::begin(edge_list);
-       //std::cout << "edge added is:\n\n";
        m_polyhedron.add_edge(edge<Point>(temp, temp1, p, (**it).m_v1));
-       //m_polyhedron.m_edge_ptr.back()->print_edge();
    }
    template
        <
@@ -1069,22 +1007,9 @@ public:
        {
            face_set.insert(*it);
        }
-       //std::cout << "face set:\n\n";
-       //for (auto it : face_set)
-       //{
-         //  it->print_facet();
-           //std::cout << it << "\n";
-       //}
-       //std::cout << "end\n\n";
        for (auto it = boost::begin(m_polyhedron.m_edge); it != boost::end(m_polyhedron.m_edge); it++)
        {
            std::size_t count = 0;
-           //std::cout << "2 faces are:\n\n";
-           //(*it).m_facet1->print_facet();
-           //(*it).m_facet2->print_facet();
-           //std::cout << (*it).m_facet1 << "\n";
-           //std::cout << (*it).m_facet2 << "\n";
-           //std::cout << "\n\n";
            if (face_set.find((*it).m_facet1) != face_set.end())
            {
                count++;
@@ -1096,7 +1021,6 @@ public:
            std::size_t index = boost::numeric_cast<size_t>(it - boost::begin(m_polyhedron.m_edge));
            if (count == 1)
            {
-               //std::cout << "yes\n\n";
                edge_list.push_back(m_polyhedron.m_edge_ptr[index]);
            }
            else if (count == 2)
@@ -1106,10 +1030,6 @@ public:
                vertex_set.insert((*it).m_v2);
            }
        }
-       //std::cout << "edge list:\n\n";
-       //for (auto it : edge_list)
-         //  it->print_edge();
-       //std::cout << "end\n\n";
        std::map<vertex<Point>*, std::vector<std::size_t>> vertex_map1,vertex_map2;
        for (auto it = boost::begin(edge_list); it != boost::end(edge_list); it++)
        {
@@ -1188,10 +1108,6 @@ polyhedron<model::d3::point_xyz<double>> convex_hull3D(Geometry1 const& input)
 {
     convex_hull_3D<model::d3::point_xyz<double>> hull;
     hull.initialize_hull(input);
-    //hull.m_polyhedron.print_poly_facet();
-    //hull.m_conflict_graph.print_graph();
-    //std::cout << "start\n\n";
-    //hull.m_conflict_graph.print_graph();
     hull.construct_hull();
     return hull.m_polyhedron;
 }
@@ -1202,7 +1118,6 @@ int main()
     typedef model::d3::point_xyz<double> point3d;
     typedef model::multi_point<point3d> mulpoly;
     typedef model::ring<point3d> rng;
-    //std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
     read_wkt("MULTIPOINT(4 0 0, 0 0 0 , 0 4 0 , 4 8 0 , 8 4 0 , 0 0 4 , 2 2 0 , 1 1 0 , 1 2 0 )", mul);
     polyhedron<point3d> result;
