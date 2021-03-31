@@ -309,6 +309,7 @@ struct conflict_graph
         for (auto it = boost::begin(m_facet_list); it != boost::end(m_facet_list); it++)
         {
             (*(*it).first).print_facet();
+            //std::cout << (*it).first << "\n";
             std::cout << " : \n";
             for (auto itr = boost::begin((*it).second); itr != boost::end((*it).second); itr++)
             {
@@ -324,6 +325,7 @@ struct conflict_graph
             for (auto itr = boost::begin((*it).second); itr != boost::end((*it).second); itr++)
             {
                 (*(*itr)).print_facet();
+                //std::cout << (*itr) << "\n";
             }
         }
     }
@@ -606,13 +608,13 @@ public:
        for (auto it = boost::begin(m_unprocessed_points); it != boost::end(m_unprocessed_points); it++)
        {
            auto face_it = boost::begin(m_conflict_graph.m_facet_list);
-           for (auto f_it = boost::begin(m_polyhedron.m_face); f_it != boost::end(m_polyhedron.m_face); f_it++)
+           for (auto f_it = boost::begin(m_polyhedron.m_face_ptr); f_it != boost::end(m_polyhedron.m_face_ptr); f_it++)
            {
-               std::size_t index1 = boost::numeric_cast<std::size_t>(f_it - boost::begin(m_polyhedron.m_face));
+               std::size_t index1 = boost::numeric_cast<std::size_t>(f_it - boost::begin(m_polyhedron.m_face_ptr));
                std::size_t index2 = boost::numeric_cast<std::size_t>(it - boost::begin(m_unprocessed_points));
-               if (is_visible<Point>(f_it->get<0>(), f_it->get<1>(), f_it->get<2>(), it->m_point) == above)
+               if (is_visible<Point>((*f_it)->get<0>(), (*f_it)->get<1>(), (*f_it)->get<2>(), it->m_point) == above)
                {
-                   point_it->second.push_back(m_polyhedron.m_face_ptr[index1]);
+                   point_it->second.push_back(*f_it);
                    face_it->second.push_back(m_unprocessed_points_ptr[index2]);
                }
                face_it++;
@@ -624,11 +626,11 @@ public:
  
    void initialize_conflict_graph()
    {
-       for (auto it = boost::begin(m_polyhedron.m_face); it != boost::end(m_polyhedron.m_face); it++)
+       for (auto it = boost::begin(m_polyhedron.m_face_ptr); it != boost::end(m_polyhedron.m_face_ptr); it++)
        {
-           std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_polyhedron.m_face));
+           //std::size_t index = boost::numeric_cast<std::size_t>(it - boost::begin(m_polyhedron.m_face));
            std::vector<unprocessed_point<Point>*> poin;
-           m_conflict_graph.m_facet_list.push_back(std::make_pair(m_polyhedron.m_face_ptr[index], poin));
+           m_conflict_graph.m_facet_list.push_back(std::make_pair(*it, poin));
        }
        m_conflict_graph.m_point_list.clear();
        for (auto it = boost::begin(m_unprocessed_points); it != boost::end(m_unprocessed_points); it++)
@@ -679,7 +681,7 @@ public:
    void construct_hull()
    {
        int x = 0;
-       for (auto it = boost::rbegin(m_unprocessed_points); it != boost::rend(m_unprocessed_points); it++)  // there is need for forward iterators 
+       for (auto it = boost::rbegin(m_unprocessed_points); it != boost::rend(m_unprocessed_points); it++)   
        {
            //std::cout << "Point is:\n";
            //it->print();
@@ -697,12 +699,11 @@ public:
            //m_conflict_graph.print_graph();
           // if (x == 1)
            //    return;
-           
+           //std::cout << "face ptr:\n\n";
+           //for (auto it : m_polyhedron.m_face_ptr)
+             //  std::cout << it << "\n";
+           //std::cout << "end\n\n";
            create_horizon_edge_list(edge_list,face_set,edge_set,vertex_set);
-           //std::cout << "edge list:\n\n";
-          // for (auto it : edge_list)
-           //    it->print_edge();
-          // std::cout << "end\n\n";
            //if (x == 2)
              //return;
            if (face_set.size() == 0)
@@ -710,14 +711,37 @@ public:
                continue;
            }
            order_edge_list(edge_list, face_set);
+           /*std::cout << "edge list:\n\n";
+           for (auto it : edge_list)
+               it->print_edge();
+           std::cout << "end\n\n";
+           std::cout << "face set:\n\n";
+           for (auto it : face_set)
+               std::cout << it << "\n";
+           std::cout << "end\n\n";
+           std::cout << "conflict is:\n";
+           m_conflict_graph.print_graph();
+           std::cout << "end\n\n";*/
            create_vertex_set(edge_set, vertex_set);
            vertex<Point> v1(it->m_point);
            m_polyhedron.add_vertex(v1);
            update_hull(edge_list, face_set, m_polyhedron.m_vertex_ptr.back(), new_facet_list,vertex_set,edge_set);
            //x++;
            //return;
+           
+           //std::cout << "new facet _list:\n\n";
+           //for (auto it : new_facet_list)
+             //  std::cout << it.first << "\n";
+           //std::cout << "end\n\n";
+
+           //std::cout << "poly faces:\n\n";
+           //for (auto it : m_polyhedron.m_face_ptr)
+             //  std::cout << it << "\n";
+           //std::cout << "end\n\n";
            update_conflict_graph(new_facet_list);
            clean_up(face_set,edge_set,vertex_set);
+           //m_polyhedron.print_poly_facet();
+           //std::cout << "\n\n";
        }
    }
 
@@ -757,17 +781,20 @@ public:
 
        for (auto it = boost::begin(face_set_new); it != boost::end(face_set_new); it++)
        {
-           m_polyhedron.add_face(**it);
+           m_polyhedron.m_face.push_back(**it);
+           m_polyhedron.m_face_ptr.push_back(*it);
        }
 
        for (auto it = boost::begin(edge_set_new); it != boost::end(edge_set_new); it++)
        {
-           m_polyhedron.add_edge(**it);
+           m_polyhedron.m_edge.push_back(**it);
+           m_polyhedron.m_edge_ptr.push_back(*it);
        }
 
        for (auto it = boost::begin(vertex_set_new); it != boost::end(vertex_set_new); it++)
        {
-           m_polyhedron.add_vertex(**it);
+           m_polyhedron.m_vertex.push_back(**it);
+           m_polyhedron.m_vertex_ptr.push_back(*it);
        }
    }
 
@@ -1159,6 +1186,9 @@ polyhedron<model::d3::point_xyz<double>> convex_hull3D(Geometry1 const& input)
 {
     convex_hull_3D<model::d3::point_xyz<double>> hull;
     hull.initialize_hull(input);
+    //hull.m_polyhedron.print_poly_facet();
+    //hull.m_conflict_graph.print_graph();
+    //std::cout << "start\n\n";
     hull.construct_hull();
     return hull.m_polyhedron;
 }
