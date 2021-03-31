@@ -704,22 +704,24 @@ public:
              //  std::cout << it << "\n";
            //std::cout << "end\n\n";
            create_horizon_edge_list(edge_list,face_set,edge_set,vertex_set);
+           //std::cout << "face set:\n\n";
+           //for (auto it : face_set)
+             //  std::cout << it << "\n";
+           //std::cout << "end\n\n";
            //if (x == 2)
              //return;
            if (face_set.size() == 0)
            {
+               update_conflict_graph(new_facet_list);
                continue;
            }
            order_edge_list(edge_list, face_set);
-           /*std::cout << "edge list:\n\n";
-           for (auto it : edge_list)
-               it->print_edge();
-           std::cout << "end\n\n";
-           std::cout << "face set:\n\n";
-           for (auto it : face_set)
-               std::cout << it << "\n";
-           std::cout << "end\n\n";
-           std::cout << "conflict is:\n";
+           //std::cout << "edge list:\n\n";
+           //for (auto it : edge_list)
+             //  it->print_edge();
+           //std::cout << "end\n\n";
+           
+           /*std::cout << "conflict is:\n";
            m_conflict_graph.print_graph();
            std::cout << "end\n\n";*/
            create_vertex_set(edge_set, vertex_set);
@@ -1189,6 +1191,7 @@ polyhedron<model::d3::point_xyz<double>> convex_hull3D(Geometry1 const& input)
     //hull.m_polyhedron.print_poly_facet();
     //hull.m_conflict_graph.print_graph();
     //std::cout << "start\n\n";
+    //hull.m_conflict_graph.print_graph();
     hull.construct_hull();
     return hull.m_polyhedron;
 }
@@ -1201,7 +1204,7 @@ int main()
     typedef model::ring<point3d> rng;
     //std::cout << is_visible(point3d(0, 0, 1), point3d(1, 0, 0), point3d(0, 1, 0), point3d(0.33, 0.33, 0.34)) << "\n";
     mulpoly mul;
-    read_wkt("MULTIPOINT(0 0 0, 0 0 2 , 2 0 0 , 0 2 0 , 1 1 1 , 2 2 0 , 2 0 2 , 2 2 2 , 0 2 2 )", mul);
+    read_wkt("MULTIPOINT(4 0 0, 0 0 0 , 0 4 0 , 4 8 0 , 8 4 0 , 0 0 4 , 2 2 0 , 1 1 0 , 1 2 0 )", mul);
     polyhedron<point3d> result;
     result = convex_hull3D(mul);
     result.print_poly_facet();
