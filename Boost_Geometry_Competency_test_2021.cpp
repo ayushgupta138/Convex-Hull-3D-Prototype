@@ -660,6 +660,8 @@ public:
        {
            it1++;
            index1++;
+           if (it1 == boost::end(edge_list))
+               return;
        }
        std::vector<edge<Point>*> edge_temp;
        for (auto it = boost::begin(edge_list)+index1; it != boost::end(edge_list)-1; it++)
@@ -1047,16 +1049,16 @@ public:
        do
        {
            temp = edge_temp.back();
-           std::vector<edge<Point>*> vec;
+           std::set<edge<Point>*> vec;
            if (vertex_map1[temp2].size())
            {
                for (auto it : vertex_map1[temp2])
-                   vec.push_back(edge_list[it]);
+                   vec.insert(edge_list[it]);
            }
            if (vertex_map2[temp2].size())
            {
                for (auto it : vertex_map2[temp2])
-                   vec.push_back(edge_list[it]);
+                   vec.insert(edge_list[it]);
            }
            for (auto it = boost::begin(vec); it != boost::end(vec); it++)
            {
@@ -1119,7 +1121,14 @@ int main()
     typedef model::multi_point<point3d> mulpoly;
     typedef model::ring<point3d> rng;
     mulpoly mul;
-    read_wkt("MULTIPOINT(4 0 0, 0 0 0 , 0 4 0 , 4 8 0 , 8 4 0 , 0 0 4 , 2 2 0 , 1 1 0 , 1 2 0 )", mul);
+    /*int x, y, z;
+    for (int i = 0; i < 100; i++)
+    {
+        std::cin >> x >> y >> z;
+        append(mul, point3d(x, y, z));
+    }
+    std::cout << "\n\n";*/
+    read_wkt("MULTIPOINT(0 0 0,1 1 1,1 2 3,0 0 2,0 2 0,0 2 2,1 1 4)", mul);
     polyhedron<point3d> result;
     result = convex_hull3D(mul);
     result.print_poly_facet();
