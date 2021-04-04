@@ -12,6 +12,7 @@ int main()
     typedef model::multi_point<point3d> mulpoly;
     typedef model::ring<point3d> rng;
     mulpoly mul;
+    // for 100 random points input
     int x, y, z;
     for (int i = 0; i < 100; i++)
     {
