@@ -341,6 +341,16 @@ enum location
     on = 2
 };
 
+//for enum reversal
+
+inline void revert_enum(enum location& loc)
+{
+    if (loc == above)
+        loc = below;
+    else if (loc == below)
+        loc = above;
+}
+
 // for determining equality of two Points
 template
 <
@@ -497,17 +507,7 @@ inline bool find_point3D(Point const& p1, Point const& p2, Point const& p3, Geom
     return false;
 }
 
-// utility functions
 
-//for enum reversal
-
-inline void revert_enum(enum location& loc)
-{
-    if (loc == above)
-        loc = below;
-    else if (loc == below)
-        loc = above;
-}
 
 // for point removal
 
