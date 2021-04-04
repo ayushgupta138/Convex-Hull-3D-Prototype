@@ -19,35 +19,33 @@ using namespace boost::geometry;
 template<typename Point,std::size_t dim_count,std::size_t dim>
 struct is_equal;
 
+// struct wrapper for facet of a polyhedron
+
 template
 <
     typename Point
 >
 struct facet
 {
-    std::vector<Point> m_facet;
     std::vector<Point*> m_facet_ptr;
     inline void add_point(Point const& p)
     {
-        m_facet.push_back(p);
         Point* ptr = new Point(p);
         m_facet_ptr.push_back(ptr);
     }
 
     inline void remove_point()
     {
-        m_facet.pop_back();
         m_facet_ptr.pop_back();
     }
 
     void insert_point(Point const& p, Point const &p1,Point const & p2)
     {
         std::size_t index = 0;
-        for (auto it = boost::begin(m_facet); it != boost::end(m_facet) - 1; it++)
+        for (auto it = boost::begin(m_facet_ptr); it != boost::end(m_facet_ptr) - 1; it++)
         {
-            if ((is_equal<Point>::apply((*it), p1) && is_equal<Point>::apply(*(it+1), p2)) || (is_equal<Point>::apply((*it), p2) && is_equal<Point>::apply(*(it + 1), p1)))
+            if ((is_equal<Point>::apply((**it), p1) && is_equal<Point>::apply(**(it+1), p2)) || (is_equal<Point>::apply((**it), p2) && is_equal<Point>::apply(**(it + 1), p1)))
             {
-                m_facet.insert(it+1, p);
                 Point* ptr = new Point(p);
                 m_facet_ptr.insert(boost::begin(m_facet_ptr) + index + 1, ptr);
                 return;
@@ -59,7 +57,6 @@ struct facet
     {
         for (auto it = l.begin(); it != l.end(); it++)
         {
-            m_facet.push_back(*it);
             Point* ptr = new Point(*it);
             m_facet_ptr.push_back(ptr);
         }
@@ -97,8 +94,8 @@ struct facet
     template<std::size_t dim>
     inline Point get()
     {
-        BOOST_ASSERT((dim < m_facet.size()));
-        return m_facet[dim];
+        BOOST_ASSERT((dim < m_facet_ptr.size()));
+        return *m_facet_ptr[dim];
     }
 };
 
@@ -214,11 +211,8 @@ template
 >
 struct polyhedron
 {
-    std::vector<facet<Point>> m_face;
     std::vector<facet<Point>*> m_face_ptr;
-    std::vector<edge<Point>> m_edge;
     std::vector<edge<Point>*> m_edge_ptr;
-    std::vector<vertex<Point>> m_vertex;
     std::vector<vertex<Point>*> m_vertex_ptr;
 
     template<std::size_t dim>
@@ -236,35 +230,29 @@ struct polyhedron
     }
     inline void add_face(facet<Point> const& face)
     {
-        m_face.push_back(face);
         facet<Point>* ptr = new facet<Point>(face);
         m_face_ptr.push_back(ptr);
     }
     inline void add_edge(edge<Point> const& edges)
     {
-        m_edge.push_back(edges);
         edge<Point>* ptr = new edge<Point>(edges);
         m_edge_ptr.push_back(ptr);
     }
     inline void add_vertex(vertex<Point> const& vertices)
     {
-        m_vertex.push_back(vertices);
         vertex<Point>* ptr = new vertex<Point>(vertices);
         m_vertex_ptr.push_back(ptr);
     }
     inline void remove_face()
     {
-        m_face.pop_back();
         m_face_ptr.pop_back();
     }
     inline void remove_edge()
     {
-        m_edge.pop_back();
         m_edge_ptr.pop_back();
     }
     inline void remove_vertex()
     {
-        m_vertex.pop_back();
         m_vertex_ptr.pop_back();
     }
     inline void print_poly_facet() // function for testing purposes
@@ -728,28 +716,22 @@ public:
                vertex_set_new.insert(*it);
            }
        }
-       m_polyhedron.m_face.clear();
        m_polyhedron.m_face_ptr.clear();
-       m_polyhedron.m_edge.clear();
        m_polyhedron.m_edge_ptr.clear();
-       m_polyhedron.m_vertex.clear();
        m_polyhedron.m_vertex_ptr.clear();
 
        for (auto it = boost::begin(face_set_new); it != boost::end(face_set_new); it++)
        {
-           m_polyhedron.m_face.push_back(**it);
            m_polyhedron.m_face_ptr.push_back(*it);
        }
 
        for (auto it = boost::begin(edge_set_new); it != boost::end(edge_set_new); it++)
        {
-           m_polyhedron.m_edge.push_back(**it);
            m_polyhedron.m_edge_ptr.push_back(*it);
        }
 
        for (auto it = boost::begin(vertex_set_new); it != boost::end(vertex_set_new); it++)
        {
-           m_polyhedron.m_vertex.push_back(**it);
            m_polyhedron.m_vertex_ptr.push_back(*it);
        }
    }
@@ -946,16 +928,16 @@ public:
    void preprocess(std::set<vertex<Point>,comp<Point>> const& vertex_del, facet<Point>* face)
    {
        facet<Point> face1;
-       for (auto it = boost::begin(face->m_facet); it != boost::end(face->m_facet); it++)
+       for (auto it = boost::begin(face->m_facet_ptr); it != boost::end(face->m_facet_ptr); it++)
        {
-           if (vertex_del.find(vertex<Point>(*it)) == vertex_del.end())
+           if (vertex_del.find(vertex<Point>(**it)) == vertex_del.end())
            {
-               face1.add_point(*it);
+               face1.add_point(**it);
            }
        }
-       if (!is_equal<Point>::apply(*(boost::begin(face1.m_facet)),*(boost::rbegin(face1.m_facet))))
+       if (!is_equal<Point>::apply(**(boost::begin(face1.m_facet_ptr)),**(boost::rbegin(face1.m_facet_ptr))))
        {
-           Point p = *(boost::begin(face1.m_facet));
+           Point p = **(boost::begin(face1.m_facet_ptr));
            face1.add_point(p);
        }
        (*face) = face1;
@@ -1009,18 +991,18 @@ public:
        {
            face_set.insert(*it);
        }
-       for (auto it = boost::begin(m_polyhedron.m_edge); it != boost::end(m_polyhedron.m_edge); it++)
+       for (auto it = boost::begin(m_polyhedron.m_edge_ptr); it != boost::end(m_polyhedron.m_edge_ptr); it++)
        {
            std::size_t count = 0;
-           if (face_set.find((*it).m_facet1) != face_set.end())
+           if (face_set.find((**it).m_facet1) != face_set.end())
            {
                count++;
            }
-           if (face_set.find((*it).m_facet2) != face_set.end())
+           if (face_set.find((**it).m_facet2) != face_set.end())
            {
                count++;
            }
-           std::size_t index = boost::numeric_cast<size_t>(it - boost::begin(m_polyhedron.m_edge));
+           std::size_t index = boost::numeric_cast<size_t>(it - boost::begin(m_polyhedron.m_edge_ptr));
            if (count == 1)
            {
                edge_list.push_back(m_polyhedron.m_edge_ptr[index]);
@@ -1028,8 +1010,8 @@ public:
            else if (count == 2)
            {
                edge_set.insert(m_polyhedron.m_edge_ptr[index]);
-               vertex_set.insert((*it).m_v1);
-               vertex_set.insert((*it).m_v2);
+               vertex_set.insert((**it).m_v1);
+               vertex_set.insert((**it).m_v2);
            }
        }
        std::map<vertex<Point>*, std::vector<std::size_t>> vertex_map1,vertex_map2;
@@ -1121,14 +1103,14 @@ int main()
     typedef model::multi_point<point3d> mulpoly;
     typedef model::ring<point3d> rng;
     mulpoly mul;
-    /*int x, y, z;
-    for (int i = 0; i < 100; i++)
+    int x, y, z;
+    for (int i = 0; i < 500; i++)
     {
         std::cin >> x >> y >> z;
         append(mul, point3d(x, y, z));
     }
-    std::cout << "\n\n";*/
-    read_wkt("MULTIPOINT(0 0 0,1 1 1,1 2 3,0 0 2,0 2 0,0 2 2,1 1 4)", mul);
+    std::cout << "\n\n";
+    //read_wkt("MULTIPOINT(0 0 0,1 1 1,1 2 3,0 0 2,0 2 0,0 2 2,1 1 4)", mul);
     polyhedron<point3d> result;
     result = convex_hull3D(mul);
     result.print_poly_facet();
