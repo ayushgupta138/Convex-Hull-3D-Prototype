@@ -20,7 +20,7 @@ using namespace std::chrono;
 template<typename Point,std::size_t dim_count,std::size_t dim>
 struct is_equal;
 
-// struct wrapper for facet of a polyhedron
+// wrapper for facet of a polyhedron
 
 template
 <
@@ -29,13 +29,13 @@ template
 struct facet
 {
     std::vector<Point*> m_facet_ptr;
-    inline void add_point(Point const& p)
+    inline void add_point(Point const& p) 
     {
         Point* ptr = new Point(p);
         m_facet_ptr.push_back(ptr);
     }
 
-    inline void remove_point()
+    inline void remove_point()    
     {
         m_facet_ptr.pop_back();
     }
@@ -100,6 +100,8 @@ struct facet
     }
 };
 
+// wrapper for vertex of a polyhedron
+
 template
 <
     typename Point
@@ -128,21 +130,7 @@ struct vertex
 
 };
 
-template
-<
-    typename Point
->
-struct comp
-{
-    bool operator()(vertex<Point> const& v1, vertex<Point> const& v2) const
-    {
-        if (get<0>(v1.m_vertex) != get<0>(v2.m_vertex))
-            return get<0>(v1.m_vertex) < get<0>(v2.m_vertex);
-        else if (get<1>(v1.m_vertex) != get<1>(v2.m_vertex))
-            return get<1>(v1.m_vertex) < get<1>(v2.m_vertex);
-        return get<2>(v1.m_vertex) < get<2>(v2.m_vertex);
-    }
-};
+// wrapper that store edge information of a polyhedron, edge's end points,incidence relation,etc
 
 template
 <
@@ -173,6 +161,8 @@ struct edge
         std::cout << wkt(m_v2->m_vertex) << "\n";
     }
 };
+
+// struct to store unprocessed points(points yet to be added to the hull)
 
 template<typename Point>
 struct unprocessed_point
@@ -205,6 +195,8 @@ struct unprocessed_point
         std::cout << wkt(m_point) << "\n";
     }
 };
+
+// struct to represent a polyhedron, contains vertices,faces, edges and incidence relation
 
 template
 <
@@ -256,7 +248,9 @@ struct polyhedron
     {
         m_vertex_ptr.pop_back();
     }
-    inline void print_poly_facet() // function for testing purposes
+    
+    // functions for testing purposes
+    inline void print_poly_facet()
     {
         for (auto it = boost::begin(m_face_ptr); it != boost::end(m_face_ptr); it++)
         {
@@ -278,6 +272,8 @@ struct polyhedron
         }
     }
 };
+
+// An important feature of randomized incremental algorithm, conflict graph. Helps in achieving speedup
 
 template
 <
@@ -318,6 +314,26 @@ struct conflict_graph
     }
 };
 
+// comparator definition for vertex structure, using lamda expressions instead of old operator() standard was efficient, but using operator() for simplicity
+
+template
+<
+    typename Point
+>
+struct comp
+{
+    bool operator()(vertex<Point> const& v1, vertex<Point> const& v2) const
+    {
+        if (get<0>(v1.m_vertex) != get<0>(v2.m_vertex))
+            return get<0>(v1.m_vertex) < get<0>(v2.m_vertex);
+        else if (get<1>(v1.m_vertex) != get<1>(v2.m_vertex))
+            return get<1>(v1.m_vertex) < get<1>(v2.m_vertex);
+        return get<2>(v1.m_vertex) < get<2>(v2.m_vertex);
+    }
+};
+
+// enum for denoting orientation of a point with respect to a planar face
+
 enum location
 {
     above = 0,
@@ -325,13 +341,34 @@ enum location
     on = 2
 };
 
-inline void revert_enum(enum location & loc)
+// for determining equality of two Points
+template
+<
+    typename Point,
+    std::size_t dim_count = dimension<Point>::value,
+    std::size_t dim = 0
+>
+struct is_equal
 {
-    if (loc == above)
-        loc = below;
-    else if (loc == below)
-        loc = above;
-}
+    static inline bool apply(Point const& p1, Point const& p2)
+    {
+        return ((get<dim>(p1) == get<dim>(p2)) && is_equal<Point, dim_count, dim + 1>::apply(p1, p2));
+    }
+};
+template
+<
+    typename Point,
+    std::size_t dim_count
+>
+struct is_equal<Point, dim_count, dim_count>
+{
+    static inline bool apply(Point const& p1, Point const& p2)
+    {
+        return true;
+    }
+};
+
+// function to obtain orientation of point w.r.t a plane
 
 template
 <
@@ -377,6 +414,8 @@ inline location is_visible(Point const& P1, Point const& P2, Point const& P3,Poi
     return res;
 }
 
+// determine collinearity of three points
+
 template
 <
     typename Point,
@@ -418,6 +457,8 @@ inline bool is_collinear(Point const& P1, Point const& P2, Point const& P3)
         return false;
 }
 
+// find 3rd non collinear point for initial hull 
+
 template
 <
     typename Geometry,
@@ -436,31 +477,7 @@ inline bool find_point2D(Point const& p1, Point const& p2, Geometry const& geome
     return false;
 }
 
-template
-<
-    typename Point,
-    std::size_t dim_count = dimension<Point>::value,
-    std::size_t dim = 0
->
-struct is_equal
-{
-    static inline bool apply(Point const&p1,Point const &p2)
-    {
-        return ((get<dim>(p1) == get<dim>(p2)) && is_equal<Point, dim_count, dim + 1>::apply(p1, p2));
-    }
-};
-template
-<
-    typename Point,
-    std::size_t dim_count
->
-struct is_equal<Point, dim_count, dim_count>
-{
-    static inline bool apply(Point const& p1, Point const& p2)
-    {
-        return true;
-    }
-};
+// find 4th non-coplanar point for initial hull
 
 template
 <
@@ -480,6 +497,38 @@ inline bool find_point3D(Point const& p1, Point const& p2, Point const& p3, Geom
     return false;
 }
 
+// utility functions
+
+//for enum reversal
+
+inline void revert_enum(enum location& loc)
+{
+    if (loc == above)
+        loc = below;
+    else if (loc == below)
+        loc = above;
+}
+
+// for point removal
+
+template
+<
+    typename T
+>
+void erase_points(std::vector<T>& point_list, T points)
+{
+    auto del = boost::begin(point_list);
+    for (auto it = boost::begin(point_list); it != boost::end(point_list); it++)
+    {
+        if ((*it) == points)
+        {
+            del = it;
+            break;
+        }
+    }
+    point_list.erase(del);
+}
+
 template
 <
     typename Point
@@ -488,6 +537,7 @@ class convex_hull_3D
 {
 public:
     typedef std::vector<std::pair<facet<Point>*, std::pair<facet<Point>*, facet<Point>*>>> face_list;
+    
     inline void add_unprocessed_point(unprocessed_point<Point> u_point)
     {
         m_unprocessed_points.push_back(u_point);
@@ -501,11 +551,12 @@ public:
         m_unprocessed_points_ptr.pop_back();
     }
 
+    // construct initial hull(tetradedron), throw exception if hull cannot be constructed
+    
     template
         <
          typename Geometry
         >
-
     void initialize_hull(Geometry const& geometry)
     {
         BOOST_CONCEPT_ASSERT((concepts::MultiPoint<Geometry>));
@@ -546,6 +597,9 @@ public:
         }
         construct_initial_conflict_graph();
     }
+
+    // add vertices, edges and faces to initial hull
+
    template
         <
         typename Point
@@ -587,6 +641,8 @@ public:
         m_polyhedron.add_edge(edge<Point>(m_polyhedron.get_face<3>(), m_polyhedron.get_face<2>(), m_polyhedron.get_vertex<2>(), m_polyhedron.get_vertex<3>()));
     }
     
+   // initialization and construction of conflict graph
+
    void construct_initial_conflict_graph()
    {
        initialize_conflict_graph();
@@ -609,7 +665,8 @@ public:
        }
    }
 
- 
+   // initialize conflict graph
+
    void initialize_conflict_graph()
    {
        for (auto it = boost::begin(m_polyhedron.m_face_ptr); it != boost::end(m_polyhedron.m_face_ptr); it++)
@@ -626,6 +683,8 @@ public:
        }
    }
 
+   // get hidden face given edge
+
    facet<Point>* get_invisible_face(edge<Point> * edge,std::set<facet<Point>*> const &face_set)
    {
        facet<Point>* invisible;
@@ -640,6 +699,8 @@ public:
        return invisible;
    }
    
+   // reorder edge list to maintain continuity of points of same face
+
    void order_edge_list(std::vector<edge<Point>*> & edge_list,std::set<facet<Point>*> const & face_set)
    {
        auto it1 = boost::begin(edge_list);
@@ -665,6 +726,8 @@ public:
        edge_list = edge_temp;
    }
 
+   // processed each unprocessed point and update the hull and conflict graph
+
    void construct_hull()
    {
        for (auto it = boost::rbegin(m_unprocessed_points); it != boost::rend(m_unprocessed_points); it++)   
@@ -689,6 +752,8 @@ public:
            clean_up(face_set, edge_set, vertex_set);
        }
    }
+
+   // final clean up and removal of faces,edges and vertices after point addition
 
    void clean_up(std::set<facet<Point>*> const& face_set, std::set<edge<Point>*> const& edge_set, std::set<vertex<Point>*> const& vertex_set)
    {
@@ -736,6 +801,8 @@ public:
            m_polyhedron.m_vertex_ptr.push_back(*it);
        }
    }
+
+   // update hull
 
    void update_hull(std::vector<edge<Point>*> const& edge_list,std::set<facet<Point>*> const & face_set,vertex<Point>* const p,face_list & new_facet_list,std::set<vertex<Point>*> &vertex_set,std::set<edge<Point>*> & edge_set)
    {
@@ -846,23 +913,8 @@ public:
        auto it = boost::begin(edge_list);
        m_polyhedron.add_edge(edge<Point>(temp, temp1, p, (**it).m_v1));
    }
-   template
-       <
-       typename T
-       >
-   void erase_points(std::vector<T>& point_list, T points)
-   {
-       auto del = boost::begin(point_list);
-       for (auto it = boost::begin(point_list); it != boost::end(point_list); it++)
-       {
-           if ((*it) == points)
-           {
-               del = it;
-               break;
-           }
-       }
-       point_list.erase(del);
-   }
+ 
+   // get alternate face
 
    inline void update_edge_facets(edge<Point>* e, facet<Point>* old, facet<Point>* new_facet)
    {
@@ -875,6 +927,8 @@ public:
            e->m_facet2 = new_facet;
        }
    }
+
+   // update conflict graph
 
    void update_conflict_graph(face_list const & new_facet_list)
    {
@@ -926,6 +980,8 @@ public:
        m_conflict_graph.m_point_list.pop_back();
    }
 
+   // preprocess face and remove vertices which are no longer part of hull
+
    void preprocess(std::set<vertex<Point>,comp<Point>> const& vertex_del, facet<Point>* face)
    {
        facet<Point> face1;
@@ -943,6 +999,8 @@ public:
        }
        (*face) = face1;
    }
+
+   // perform union and return new conflict graph values
 
    void create_union(std::vector<unprocessed_point<Point>*> const& v1, std::vector<unprocessed_point<Point>*> const& v2, std::vector<unprocessed_point<Point>*>& result,facet<Point>* face)
    {
@@ -965,6 +1023,8 @@ public:
        }
    }
 
+   // determine vertices to be deleted 
+  
    void create_vertex_set(std::set<edge<Point>*> const & edge_set,std::set<vertex<Point>*> & vertex_set)
    {
        for (auto it = boost::begin(edge_set); it != boost::end(edge_set); it++)
@@ -980,11 +1040,10 @@ public:
        }
    }
 
-   
+   // create horizon list
+
    void create_horizon_edge_list(std::vector<edge<Point>*> & edge_list, std::set<facet<Point>*>& face_set,std::set<edge<Point>*> & edge_set,std::set<vertex<Point>*> & vertex_set)
-   {
-      
-       
+   {  
        std::vector<facet<Point>*> visible_faces = m_conflict_graph.m_point_list.back().second;
        if (visible_faces.size() == 0)
            return;
@@ -1063,6 +1122,8 @@ public:
        }
    }
 
+   // utility function
+
    inline void exchange_vertex(edge<Point>* e)
    {
        vertex<Point>* temp;
@@ -1070,6 +1131,8 @@ public:
        e->m_v1 = e->m_v2;
        e->m_v2 = temp;
    }
+
+   // utility function
 
    inline vertex<Point>* return_alternate(edge<Point> const& edge, vertex<Point>* const& vertex)
    {
@@ -1084,6 +1147,8 @@ public:
         std::vector<unprocessed_point<Point>> m_unprocessed_points;
         std::vector<unprocessed_point<Point>*> m_unprocessed_points_ptr;
 };
+
+// free function for hull construction
 
 template
 <
@@ -1105,7 +1170,7 @@ int main()
     typedef model::ring<point3d> rng;
     mulpoly mul;
     int x, y, z;
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 100; i++)
     {
         std::cin >> x >> y >> z;
         append(mul, point3d(x, y, z));
