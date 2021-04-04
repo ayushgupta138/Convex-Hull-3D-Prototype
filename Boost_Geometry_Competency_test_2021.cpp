@@ -15,6 +15,7 @@
 #define epsilon 1e-4
 
 using namespace boost::geometry;
+using namespace std::chrono;
 
 template<typename Point,std::size_t dim_count,std::size_t dim>
 struct is_equal;
@@ -1104,7 +1105,7 @@ int main()
     typedef model::ring<point3d> rng;
     mulpoly mul;
     int x, y, z;
-    for (int i = 0; i < 500; i++)
+    for (int i = 0; i < 1000; i++)
     {
         std::cin >> x >> y >> z;
         append(mul, point3d(x, y, z));
@@ -1112,6 +1113,10 @@ int main()
     std::cout << "\n\n";
     //read_wkt("MULTIPOINT(0 0 0,1 1 1,1 2 3,0 0 2,0 2 0,0 2 2,1 1 4)", mul);
     polyhedron<point3d> result;
+    auto start = high_resolution_clock::now();
     result = convex_hull3D(mul);
+    auto stop = high_resolution_clock::now();
     result.print_poly_facet();
+    auto duration = duration_cast<milliseconds>(stop - start);
+    std::cout << "Time taken by 3D convex hull function : " << duration.count() << " ms\n";
 }
