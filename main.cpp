@@ -3,6 +3,8 @@
 #include<chrono>
 #include<random>
 
+#include<boost/geometry.hpp>
+
 using namespace boost::geometry;
 using namespace std::chrono;
 
